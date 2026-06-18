@@ -1,0 +1,588 @@
+     1→---
+     2→Task ID: 10
+     3→Agent: Z.ai Code
+     4→Task: Feature #10 - Order Management
+     5→
+     6→Work Log:
+     7→- Created comprehensive order management utilities in `src/lib/orders.ts`:
+     8→  - validateOrderData(): Validate order data including items and stock availability
+     9→  - validateOrderItem(): Validate individual order items (productId, quantity, unitPrice)
+    10→  - generateOrderNumber(): Generate unique order numbers (ORD-YYYYMMDD-XXXX format)
+    11→  - createOrder(): Create orders with automatic stock deduction and movement recording
+    12→  - getOrderById(): Get single order with full details and subtotal calculation
+    13→  - listOrders(): Advanced filtering, search, sorting, pagination
+    14→  - updateOrderStatus(): Update status with workflow validation and stock restoration
+    15→  - updateOrderNotes(): Update order notes
+    16→  - getOrderStatistics(): Order metrics and revenue analytics
+    17→- Implemented comprehensive order validation:
+    18→  - Client must exist and belong to current company
+    19→  - Commercial must exist and belong to company (optional, auto-assigns to current user)
+    20→  - At least one item required
+    21→  - Product must exist, be active, and belong to company
+    22→  - Sufficient stock must be available
+    23→  - Quantity must be positive (max 1M)
+    24→  - Unit price must be positive
+    25→  - Discount optional (max 1M)
+    26→  - Tax optional (max 1M)
+    27→  - Notes max 2000 characters
+    28→- Created API endpoints:
+    29→  - GET /api/orders - List with filters (client, commercial, status, date range, total range)
+    30→  - GET /api/orders?stats=true - Get order statistics
+    31→  - POST /api/orders - Create new order with items
+    32→  - GET /api/orders/[orderId] - Get order by ID with items and subtotal
+    33→  - PATCH /api/orders/[orderId] - Update order status or notes
+    34→- Order Status Workflow:
+    35→  - new → validated → preparation → shipped → delivered
+    36→  - Any status → cancelled (with stock restoration)
+    37→  - Invalid status transitions prevented
+    38→  - Workflow validation enforced
+    39→- Automatic stock management:
+    40→  - Stock automatically deducted on order creation
+    41→  - Stock movements recorded in StockMovement table
+    42→  - Movement type: 'exit' with reason (order number)
+    43→  - Stock restored on cancellation
+    44→  - Movement type: 'entry' with reason (order + cancelled)
+    45→  - Prevents negative stock (insufficient stock check)
+    46→- Order calculations:
+    47→  - Item total = quantity × unitPrice
+    48→  - Subtotal = sum of all item totals
+    49→  - Total = subtotal - discount + tax
+    50→  - All calculations tracked in Order and OrderItem tables
+    51→- Advanced filtering capabilities:
+    52→  - Search in order number, client name, commercial name (case-insensitive)
+    53→  - Filter by client ID
+    54→  - Filter by commercial ID (role-based)
+    55→  - Filter by status
+    56→  - Filter by date range (minDate, maxDate)
+    57→  - Filter by total amount range (minTotal, maxTotal)
+    58→  - Sort by number, total, createdAt, updatedAt, status
+    59→  - Pagination with configurable page size
+    60→- Role-based access control:
+    61→  - Commercials see only their orders
+    62→  - Admins/directors/super admins see all orders
+    63→  - Managers can filter by specific commercial
+    64→  - Current user auto-assigned as commercial if not provided
+    65→- Order statistics:
+    66→  - Total orders count
+    67→  - Recent orders (last 30 days)
+    68→  - Total revenue from delivered orders
+    69→  - Average order value
+    70→  - Breakdown by status (count, total)
+    71→- Unique order number generation per company
+    72→- Company isolation enforced throughout all operations
+    73→- Created comprehensive test suite with 12 tests
+    74→- All 12 tests passed successfully
+    75→- Committed and pushed to GitHub (commit 624925d)
+    76→
+    77→Stage Summary:
+    78→Feature #10: Order Management - COMPLETED
+    79→
+    80→Files Created:
+    81→- src/lib/orders.ts (760 lines) - Core order management utilities
+    82→- src/app/api/orders/route.ts - List, create, statistics endpoints
+    83→- src/app/api/orders/[orderId]/route.ts - Get, update status/notes endpoints
+    84→- scripts/test-orders.ts - Comprehensive test suite
+    85→
+    86→Test Results:
+    87→✅ Test 1: Create Order With Items - PASS
+    88→✅ Test 2: Update Stock Manually - PASS
+    89→✅ Test 3: Get Order By ID - PASS
+    90→✅ Test 4: Order Status Workflow - PASS
+    91→✅ Test 5: Cancellation Restores Stock - PASS
+    92→✅ Test 6: List Orders With Pagination - PASS
+    93→✅ Test 7: Filter Orders By Status - PASS
+    94→✅ Test 8: Calculate Order Totals - PASS
+    95→✅ Test 9: Update Order Notes - PASS
+    96→✅ Test 10: Company Isolation - PASS
+    97→✅ Test 11: Order Sorting - PASS
+    98→✅ Test 12: Order Number Format - PASS
+    99→
+   100→Total: 12/12 tests passed
+   101→
+   102→The order management feature is fully functional with automatic stock tracking, status workflow, comprehensive validation, and multi-tenant support.
+   103→
+   104→------
+   105→Task ID: 11
+   106→Agent: Z.ai Code
+   107→Task: Feature #11 - Category Management
+   108→
+   109→Work Log:
+   110→- Created comprehensive category management utilities in `src/lib/categories.ts` (840 lines):
+   111→  - validateCategoryData(): Validate category data (name required, max 100 chars, image max 500 chars)
+   112→  - createCategory(): Create categories with optional parent for hierarchy
+   113→  - getCategoryById(): Get category with parent/children and products count
+   114→  - listCategories(): Advanced filtering, search, sorting, pagination
+   115→  - getCategoryTree(): Build hierarchical tree structure from all categories
+   116→  - updateCategory(): Update category with circular reference prevention
+   117→  - deleteCategory(): Delete with protection (cannot delete with children or products)
+   118→  - moveCategory(): Move category to new parent
+   119→  - getCategoryStatistics(): Category metrics and analytics
+   120→  - getCategoryBreadcrumb(): Get breadcrumb path from root to category
+   121→  - searchCategories(): Search categories by name
+   122→  - checkIsDescendant(): Helper to prevent circular references
+   123→- Implemented category hierarchy features:
+   124→  - Support unlimited nesting depth (parent-child relationships)
+   125→  - Build complete tree structure with nested children
+   126→  - Breadcrumb path generation
+   127→  - Prevent circular references in hierarchy
+   128→  - Prevent self-parent assignment
+   129→- Category validation rules:
+   130→  - Name required and trimmed
+   131→  - Name max 100 characters
+   132→  - Image URL max 500 characters
+   133→  - Parent must exist and belong to same company
+   134→  - Duplicate name prevention within company
+   135→  - Cannot delete categories with children
+   136→  - Cannot delete categories with products
+   137→- Created API endpoints:
+   138→  - GET /api/categories - List, search, get tree, get statistics
+   139→  - POST /api/categories - Create new category
+   140→  - GET /api/categories/[id] - Get category by ID with details
+   141→  - PATCH /api/categories/[id] - Update category
+   142→  - DELETE /api/categories/[id] - Delete category
+   143→  - GET /api/categories/[id]/breadcrumb - Get breadcrumb path
+   144→- Filtering and search capabilities:
+   145→  - Filter by parent ID (null for root categories)
+   146→  - Search by category name (case-sensitive for SQLite)
+   147→  - Sort by name, createdAt, updatedAt
+   148→  - Sort order: ascending or descending
+   149→  - Pagination with configurable page size
+   150→- Category statistics:
+   151→  - Total categories count
+   152→  - Root categories count (no parent)
+   153→  - Categories with children count
+   154→  - Categories with products count
+   155→  - Empty categories count
+   156→  - Top 5 categories by product count
+   157→- Multi-tenant company isolation:
+   158→  - All operations scoped to current user's company
+   159→  - Parent category must belong to same company
+   160→  - Statistics scoped to company
+   161→  - Cross-company access prevented
+   162→- Product-category relationship:
+   163→  - Products can be assigned to categories
+   164→  - Products count per category
+   165→  - Protection against deleting categories with products
+   166→- Fixed SQLite compatibility:
+   167→  - Removed mode: 'insensitive' for case-insensitive search (not supported)
+   168→  - Used basic 'contains' filtering instead
+   169→- Created comprehensive test suite with 25 tests
+   170→- All 25 tests passed successfully
+   171→- Committed and pushed to GitHub (commit 6eacb2f)
+   172→
+   173→Stage Summary:
+   174→Feature #11: Category Management - COMPLETED
+   175→
+   176→Files Created:
+   177→- src/lib/categories.ts (840 lines) - Core category management utilities
+   178→- src/app/api/categories/route.ts - List, create, statistics endpoints
+   179→- src/app/api/categories/[categoryId]/route.ts - Get, update, delete endpoints
+   180→- src/app/api/categories/[categoryId]/breadcrumb/route.ts - Breadcrumb endpoint
+   181→- scripts/test-categories.ts - Comprehensive test suite
+   182→
+   183→Test Results:
+   184→✅ Test 1: Create Root Category - PASS
+   185→✅ Test 2: Create Child Category - PASS
+   186→✅ Test 3: Create Nested Child Category (3 levels) - PASS
+   187→✅ Test 4: Prevent Duplicate Category Name - PASS
+   188→✅ Test 5: Validate Category Name Required - PASS
+   189→✅ Test 6: Validate Category Name Length (100 chars max) - PASS
+   190→✅ Test 7: Get Category By ID - PASS
+   191→✅ Test 8: Category Products Count - PASS
+   192→✅ Test 9: List Categories With Pagination - PASS
+   193→✅ Test 10: Filter Categories By Parent - PASS
+   194→✅ Test 11: Filter Root Categories (no parent) - PASS
+   195→✅ Test 12: Search Categories - PASS
+   196→✅ Test 13: Category Tree Structure - PASS
+   197→✅ Test 14: Category Breadcrumb Path - PASS
+   198→✅ Test 15: Update Category Name - PASS
+   199→✅ Test 16: Prevent Circular Reference (Parent to Child) - PASS
+   200→✅ Test 17: Prevent Self Parent - PASS
+   201→✅ Test 18: Category Statistics - PASS
+   202→✅ Test 19: Sort Categories By Name (desc) - PASS
+   203→✅ Test 20: Prevent Delete Category With Children - PASS
+   204→✅ Test 21: Prevent Delete Category With Products - PASS
+   205→✅ Test 22: Delete Empty Category - PASS
+   206→✅ Test 23: Update Category Image - PASS
+   207→✅ Test 24: Company Isolation - PASS
+   208→✅ Test 25: Validate Parent Category Belongs to Same Company - PASS
+   209→
+   210→Total: 25/25 tests passed
+   211→
+   212→The category management feature is fully functional with hierarchical structure support, comprehensive validation, and multi-tenant support.
+   213→---
+   214→Task ID: 12
+   215→Agent: Z.ai Code
+   216→Task: Feature #12 - Quote Management
+   217→
+   218→Work Log:
+   219→- Created comprehensive quote management utilities in `src/lib/quotes.ts` (757 lines):
+   220→  - validateQuoteData(): Validate quote data including items, discount, tax, notes, validUntil
+   221→  - validateQuoteItem(): Validate individual quote items (productId, quantity, unitPrice, discount)
+   222→  - generateQuoteNumber(): Generate unique quote numbers (QT-YYYYMMDD-XXXX format)
+   223→  - createQuote(): Create quotes with automatic totals calculation
+   224→  - getQuoteById(): Get single quote with full details and subtotal calculation
+   225→  - listQuotes(): Advanced filtering, search, sorting, pagination with role-based access
+   226→  - updateQuoteStatus(): Update status with workflow validation and expiration checks
+   227→  - updateQuoteNotes(): Update quote notes
+   228→  - deleteQuote(): Delete quote with protection for accepted quotes
+   229→  - getExpiredQuotes(): Get all expired quotes (draft or sent)
+   230→  - getQuoteStatistics(): Quote metrics and conversion rate analytics
+   231→  - calculateQuoteTotals(): Helper to calculate subtotal and total
+   232→- Implemented comprehensive quote validation:
+   233→  - Client must exist and belong to current company
+   234→  - Commercial must exist and belong to company (optional)
+   235→  - At least one item required
+   236→  - Product must exist, be active, and belong to company
+   237→  - Quantity must be positive (max 1M)
+   238→  - Unit price must be positive (max 1B)
+   239→  - Discount optional (max 1M per item and quote)
+   240→  - Tax optional (max 1M)
+   241→  - Notes max 2000 characters
+   242→  - Valid until must be in the future
+   243→- Created API endpoints:
+   244→  - GET /api/quotes - List with filters (client, commercial, status, date range, total range)
+   245→  - GET /api/quotes?stats=true - Get quote statistics
+   246→  - GET /api/quotes?expired=true - Get expired quotes
+   247→  - POST /api/quotes - Create new quote with items
+   248→  - GET /api/quotes/[quoteId] - Get quote by ID with items and subtotal
+   249→  - PATCH /api/quotes/[quoteId] - Update quote status or notes
+   250→  - DELETE /api/quotes/[quoteId] - Delete quote
+   251→- Quote Status Workflow:
+   252→  - draft → sent → accepted/refused
+   253→  - Invalid status transitions prevented
+   254→  - Cannot send expired quotes
+   255→  - Cannot delete accepted quotes (must convert to order first)
+   256→- Quote calculations:
+   257→  - Item total = (quantity × unitPrice) - itemDiscount
+   258→  - Subtotal = sum of all item totals
+   259→  - Total = subtotal - discount + tax
+   260→  - All calculations tracked in Quote and QuoteItem tables
+   261→- Quote number generation:
+   262→  - Format: QT-YYYYMMDD-XXXX
+   263→  - Date-based daily sequence (resets each day)
+   264→  - Auto-incrementing sequence per day
+   265→  - Unique within company
+   266→- Advanced filtering capabilities:
+   267→  - Search in quote number, client name, commercial name (case-sensitive for SQLite)
+   268→  - Filter by client ID
+   269→  - Filter by commercial ID (role-based)
+   270→  - Filter by status
+   271→  - Filter by date range (minDate, maxDate)
+   272→  - Filter by total amount range (minTotal, maxTotal)
+   273→  - Sort by number, total, createdAt, updatedAt, status, validUntil
+   274→  - Pagination with configurable page size
+   275→- Role-based access control:
+   276→  - Commercials see only their quotes
+   277→  - Admins/directors/super admins see all quotes
+   278→  - Managers can filter by specific commercial
+   279→  - Company isolation enforced
+   280→- Quote statistics:
+   281→  - Total quotes count
+   282→  - Recent quotes (last 30 days)
+   283→  - Accepted quotes count
+   284→  - Refused quotes count
+   285→  - Total value of accepted quotes
+   286→  - Average quote value
+   287→  - Conversion rate (accepted / (accepted + refused))
+   288→  - Breakdown by status (count, total)
+   289→- Expiration management:
+   290→  - validUntil date for quote validity
+   291→  - Get expired quotes endpoint
+   292→  - Cannot send expired quotes
+   293→- Company isolation enforced throughout all operations
+   294→- Created comprehensive test suite with 23 tests
+   295→- All 23 tests passed successfully
+   296→- Committed and pushed to GitHub (commit 1430844)
+   297→
+   298→Stage Summary:
+   299→Feature #12: Quote Management - COMPLETED
+   300→
+   301→Files Created:
+   302→- src/lib/quotes.ts (757 lines) - Core quote management utilities
+   303→- src/app/api/quotes/route.ts - List, create, statistics, expired endpoints
+   304→- src/app/api/quotes/[quoteId]/route.ts - Get, update status/notes, delete endpoints
+   305→- scripts/test-quotes.ts - Comprehensive test suite
+   306→
+   307→Test Results:
+   308→✅ Test 1: Create Quote - PASS
+   309→✅ Test 2: Get Quote By ID - PASS
+   310→✅ Test 3: Quote Totals Calculation - PASS
+   311→✅ Test 4: List Quotes With Pagination - PASS
+   312→✅ Test 5: Quote Status Workflow - PASS
+   313→✅ Test 6: Invalid Status Transition - PASS
+   314→✅ Test 7: Prevent Delete Accepted Quote - PASS
+   315→✅ Test 8: Create Quote With Future Valid Until - PASS
+   316→✅ Test 9: Update Quote Notes - PASS
+   317→✅ Test 10: Filter Quotes By Status - PASS
+   318→✅ Test 11: Filter Quotes By Client - PASS
+   319→✅ Test 12: Search Quotes - PASS
+   320→✅ Test 13: Quote Statistics - PASS
+   321→✅ Test 14: Calculate Conversion Rate - PASS
+   322→✅ Test 15: Sort Quotes By Total - PASS
+   323→✅ Test 16: Delete Draft Quote - PASS
+   324→✅ Test 17: Validate Quote Items - PASS
+   325→✅ Test 18: Quote With Item Discount - PASS
+   326→✅ Test 19: Company Isolation - PASS
+   327→✅ Test 20: Quote Number Format - PASS
+   328→✅ Test 21: Create Quote Without Commercial - PASS
+   329→✅ Test 22: Filter Quotes By Date Range - PASS
+   330→✅ Test 23: Filter Quotes By Total Range - PASS
+   331→
+   332→Total: 23/23 tests passed
+   333→
+   334→The quote management feature is fully functional with status workflow, comprehensive validation, and multi-tenant support.
+   335→---
+   336→Task ID: 13
+   337→Agent: Z.ai Code
+   338→Task: Feature #13 - Invoice Management
+   339→
+   340→Work Log:
+   341→- Created comprehensive invoice management utilities in `src/lib/invoices.ts` (916 lines):
+   342→  - validateInvoiceData(): Validate invoice data including items, discount, tax, notes, dueDate
+   343→  - validateInvoiceItem(): Validate individual invoice items (productId, quantity, unitPrice, discount)
+   344→  - generateInvoiceNumber(): Generate unique invoice numbers (INV-YYYYMMDD-XXXX format)
+   345→  - createInvoice(): Create invoices with automatic totals calculation
+   346→  - getInvoiceById(): Get single invoice with full details, payments, and remaining amount
+   347→  - listInvoices(): Advanced filtering, search, sorting, pagination with role-based access
+   348→  - updateInvoiceDetails(): Update notes or due date with automatic status recalculation
+   349→  - deleteInvoice(): Delete invoice with protection for invoices with payments
+   350→  - getOverdueInvoices(): Get all overdue invoices (due date past, not paid)
+   351→  - getInvoiceStatistics(): Invoice metrics and outstanding amounts
+   352→  - updateInvoicePaymentStatus(): Helper to update status based on payments and due date
+   353→  - calculateInvoiceTotals(): Helper to calculate subtotal and total
+   354→- Implemented comprehensive invoice validation:
+   355→  - Client must exist and belong to current company
+   356→  - Order (if provided) must exist and belong to same client/company
+   357→  - Commercial must exist and belong to company (optional)
+   358→  - At least one item required
+   359→  - Product must exist and belong to company
+   360→  - Quantity must be positive (max 1M)
+   361→  - Unit price must be positive (max 1B)
+   362→  - Discount optional (max 1M per item and invoice)
+   363→  - Tax optional (max 1M)
+   364→  - Notes max 2000 characters
+   365→  - Due date optional (past dates allowed)
+   366→- Created API endpoints:
+   367→  - GET /api/invoices - List with filters (client, commercial, status, date range, total range, overdue)
+   368→  - GET /api/invoices?stats=true - Get invoice statistics
+   369→  - GET /api/invoices?overdue=true - Get overdue invoices
+   370→  - POST /api/invoices - Create new invoice with items
+   371→  - GET /api/invoices/[invoiceId] - Get invoice by ID with items, payments, and remaining
+   372→  - PATCH /api/invoices/[invoiceId] - Update notes or due date
+   373→  - DELETE /api/invoices/[invoiceId] - Delete invoice (without payments)
+   374→- Invoice Status Management:
+   375→  - unpaid: No payments made
+   376→  - partially_paid: Some payments made (0 < paid < total)
+   377→  - paid: Full payment made (paid >= total)
+   378→  - overdue: Due date past and not fully paid
+   379→  - Status automatically updates based on payments and due date
+   380→- Invoice calculations:
+   381→  - Item total = (quantity × unitPrice) - itemDiscount
+   382→  - Subtotal = sum of all item totals
+   383→  - Total = subtotal - discount + tax
+   384→  - Remaining = total - paid
+   385→  - All calculations tracked in Invoice and InvoiceItem tables
+   386→- Invoice number generation:
+   387→  - Format: INV-YYYYMMDD-XXXX
+   388→  - Date-based daily sequence (resets each day)
+   389→  - Auto-incrementing sequence per day
+   390→  - Unique within company
+   391→- Advanced filtering capabilities:
+   392→  - Search in invoice number, client name, commercial name (case-sensitive for SQLite)
+   393→  - Filter by client ID
+   394→  - Filter by commercial ID (role-based)
+   395→  - Filter by status
+   396→  - Filter by overdue status
+   397→  - Filter by date range (minDate, maxDate)
+   398→  - Filter by total amount range (minTotal, maxTotal)
+   399→  - Sort by number, total, createdAt, updatedAt, status, dueDate
+   400→  - Pagination with configurable page size
+   401→- Role-based access control:
+   402→  - Commercials see only their invoices
+   403→  - Admins/directors/super admins see all invoices
+   404→  - Managers can filter by specific commercial
+   405→  - Company isolation enforced
+   406→- Invoice statistics:
+   407→  - Total invoices count
+   408→  - Recent invoices (last 30 days)
+   409→  - Paid invoices count
+   410→  - Unpaid invoices count
+   411→  - Overdue invoices count
+   412→  - Partially paid invoices count
+   413→  - Total invoiced amount
+   414→  - Total paid amount
+   415→  - Total outstanding (total - paid for unpaid/partially_paid/overdue)
+   416→  - Average invoice value
+   417→  - Breakdown by status (count, total)
+   418→- Overdue management:
+   419→  - Due date tracking
+   420→  - Get overdue invoices endpoint
+   421→  - Automatic status update on due date change
+   422→  - Past due dates allowed (for testing and corrections)
+   423→- Payment tracking:
+   424→  - Payments linked to invoices
+   425→  - Status updates when payments made
+   426→  - Remaining amount calculated
+   427→  - Cannot delete invoices with payments
+   428→- Company isolation enforced throughout all operations
+   429→- Fixed Prisma schema issues (removed non-existent order relation)
+   430→- Fixed aggregate query (totalOutstanding calculation)
+   431→- Fixed validation (allowed past due dates)
+   432→- Created comprehensive test suite with 23 tests
+   433→- All 23 tests passed successfully
+   434→- Committed and pushed to GitHub (commit 95a8c86)
+   435→
+   436→Stage Summary:
+   437→Feature #13: Invoice Management - COMPLETED
+   438→
+   439→Files Created:
+   440→- src/lib/invoices.ts (916 lines) - Core invoice management utilities
+   441→- src/app/api/invoices/route.ts - List, create, statistics, overdue endpoints
+   442→- src/app/api/invoices/[invoiceId]/route.ts - Get, update details, delete endpoints
+   443→- scripts/test-invoices.ts - Comprehensive test suite
+   444→
+   445→Test Results:
+   446→✅ Test 1: Create Invoice - PASS
+   447→✅ Test 2: Get Invoice By ID - PASS
+   448→✅ Test 3: Invoice Totals Calculation - PASS
+   449→✅ Test 4: List Invoices With Pagination - PASS
+   450→✅ Test 5: Create Invoice With Item Discount - PASS
+   451→✅ Test 6: Update Invoice Notes - PASS
+   452→✅ Test 7: Update Invoice Due Date - PASS
+   453→✅ Test 8: Filter Invoices By Status - PASS
+   454→✅ Test 9: Filter Invoices By Client - PASS
+   455→✅ Test 10: Search Invoices - PASS
+   456→✅ Test 11: Invoice Statistics - PASS
+   457→✅ Test 12: Calculate Outstanding Amount - PASS
+   458→✅ Test 13: Sort Invoices By Total - PASS
+   459→✅ Test 14: Delete Invoice Without Payments - PASS
+   460→✅ Test 15: Validate Invoice Items - PASS
+   461→✅ Test 16: Company Isolation - PASS
+   462→✅ Test 17: Invoice Number Format - PASS
+   463→✅ Test 18: Create Invoice Without Commercial - PASS
+   464→✅ Test 19: Filter Invoices By Date Range - PASS
+   465→✅ Test 20: Filter Invoices By Total Range - PASS
+   466→✅ Test 21: Prevent Delete Invoice With Payments - PASS
+   467→✅ Test 22: Create Invoice Linked to Order - PASS
+   468→✅ Test 23: Get Overdue Invoices - PASS
+   469→
+   470→Total: 23/23 tests passed
+   471→
+   472→The invoice management feature is fully functional with status management, payment tracking, overdue detection, and multi-tenant support.
+   473→---
+   474→Task ID: 14
+   475→Agent: Z.ai Code
+   476→Task: Feature #14 - Payment Management
+   477→
+   478→Work Log:
+   479→- Created comprehensive payment management utilities in `src/lib/payments.ts` (876 lines):
+   480→  - validatePaymentData(): Validate payment data (amount, method, reference, notes, invoiceId)
+   481→  - createPayment(): Create payments with automatic invoice status updates
+   482→  - getPaymentById(): Get single payment with client and invoice details
+   483→  - listPayments(): Advanced filtering, search, sorting, pagination
+   484→  - updatePayment(): Update payment with invoice validation and status updates
+   485→  - deletePayment(): Delete payment with automatic invoice status recalculation
+   486→  - getPaymentStatistics(): Payment metrics and analytics
+   487→  - getPaymentsByInvoice(): Get all payments for a specific invoice
+   488→- Implemented comprehensive payment validation:
+   489→  - Client must exist and belong to current company
+   490→  - Invoice (if provided) must exist and belong to same client/company
+   491→  - Payment cannot exceed invoice total balance
+   492→  - Amount must be positive (max 1B)
+   493→  - Payment method must be valid
+   494→  - Reference max 100 characters (optional)
+   495→  - Notes max 500 characters (optional)
+   496→- Created API endpoints:
+   497→  - GET /api/payments - List with filters (client, invoice, method, status, date range, amount range)
+   498→  - GET /api/payments?stats=true - Get payment statistics
+   499→  - POST /api/payments - Create new payment (with optional invoice link)
+   500→  - GET /api/payments/[paymentId] - Get payment by ID with details
+   501→  - PATCH /api/payments/[paymentId] - Update payment (status, amount, method, reference, notes)
+   502→  - DELETE /api/payments/[paymentId] - Delete payment
+   503→- Payment Status Management:
+   504→  - pending: Payment initiated but not completed
+   505→  - completed: Payment successfully processed
+   506→  - failed: Payment processing failed
+   507→  - Status can be updated (pending → completed/failed)
+   508→- Payment Methods:
+   509→  - cash: Physical cash payment
+   510→  - bank_transfer: Bank wire transfer
+   511→  - check: Paper check payment
+   512→  - mobile_payment: Mobile payment (Mobile Money, Wave, etc.)
+   513→- Automatic Invoice Status Updates:
+   514→  - When payment created/updated with status 'completed', invoice status updates
+   515→  - When payment deleted, invoice status recalculates based on remaining payments
+   516→  - Invoice status transitions: unpaid → partially_paid → paid
+   517→  - Invoice paid amount automatically updated
+   518→- Payment Validation:
+   519→  - Cannot create payment exceeding invoice total
+   520→  - Cannot update payment amount to exceed invoice total
+   521→  - Validates invoice belongs to same client
+   522→  - Validates invoice and client belong to same company
+   523→- Advanced filtering capabilities:
+   524→  - Search in reference, notes, client name (case-sensitive for SQLite)
+   525→  - Filter by client ID
+   526→  - Filter by invoice ID
+   527→  - Filter by payment method
+   528→  - Filter by payment status
+   529→  - Filter by date range (minDate, maxDate)
+   530→  - Filter by amount range (minAmount, maxAmount)
+   531→  - Sort by amount, createdAt, updatedAt, method, status
+   532→  - Pagination with configurable page size
+   533→- Payment statistics:
+   534→  - Total payments count
+   535→  - Recent payments (last 30 days)
+   536→  - Completed payments count
+   537→  - Pending payments count
+   538→  - Failed payments count
+   539→  - Total collected amount (completed payments)
+   540→  - Total pending amount (pending payments)
+   541→  - Average payment amount
+   542→  - Breakdown by payment method (count, total)
+   543→  - Breakdown by status (count, total)
+   544→- Company isolation enforced throughout all operations
+   545→- Created comprehensive test suite with 25 tests
+   546→- All 25 tests passed successfully
+   547→- Committed and pushed to GitHub (commit 8d7a1ea)
+   548→
+   549→Stage Summary:
+   550→Feature #14: Payment Management - COMPLETED
+   551→
+   552→Files Created:
+   553→- src/lib/payments.ts (876 lines) - Core payment management utilities
+   554→- src/app/api/payments/route.ts - List, create, statistics endpoints
+   555→- src/app/api/payments/[paymentId]/route.ts - Get, update, delete endpoints
+   556→- scripts/test-payments.ts - Comprehensive test suite
+   557→
+   558→Test Results:
+   559→✅ Test 1: Create Payment - PASS
+   560→✅ Test 2: Get Payment By ID - PASS
+   561→✅ Test 3: Validate Payment Amount (negative) - PASS
+   562→✅ Test 4: Validate Payment Method (invalid) - PASS
+   563→✅ Test 5: List Payments With Pagination - PASS
+   564→✅ Test 6: Filter Payments By Method - PASS
+   565→✅ Test 7: Filter Payments By Status - PASS
+   566→✅ Test 8: Search Payments - PASS
+   567→✅ Test 9: Update Payment Status - PASS
+   568→✅ Test 10: Update Payment Amount - PASS
+   569→✅ Test 11: Update Payment Method - PASS
+   570→✅ Test 12: Delete Payment - PASS
+   571→✅ Test 13: Payment Statistics - PASS
+   572→✅ Test 14: Calculate Total Collected - PASS
+   573→✅ Test 15: Sort Payments By Amount - PASS
+   574→✅ Test 16: Company Isolation - PASS
+   575→✅ Test 17: Create Payment Linked to Invoice - PASS
+   576→✅ Test 18: Get Payments By Invoice - PASS
+   577→✅ Test 19: Payment Status Update Affects Invoice - PASS
+   578→✅ Test 20: Prevent Payment Exceeding Total - PASS
+   579→✅ Test 21: Filter Payments By Client - PASS
+   580→✅ Test 22: Filter Payments By Amount Range - PASS
+   581→✅ Test 23: Payment Methods Breakdown - PASS
+   582→✅ Test 24: Delete Payment Linked to Invoice Updates Invoice - PASS
+   583→✅ Test 25: Payment Status Breakdown - PASS
+   584→
+   585→Total: 25/25 tests passed
+   586→
+   587→The payment management feature is fully functional with automatic invoice status updates, comprehensive validation, and multi-tenant support.
+   588→
