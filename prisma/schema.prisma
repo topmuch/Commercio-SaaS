@@ -34,6 +34,8 @@ model Company {
   posts     Post[]
   storeBanners    StoreBanner[]
   whatsappOrders  WhatsappOrder[]
+  subscriptions  Subscription[]
+  saasPayments  SaasPayment[]
 }
 
 // ===== USERS =====
@@ -535,4 +537,47 @@ model Target {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// ===== SaaS SUBSCRIPTIONS =====
+model Subscription {
+  id          String   @id @default(cuid())
+  companyId   String
+  plan        String   // free, pro, enterprise
+  status      String   @default("active") // active, cancelled, suspended, past_due
+  startDate   DateTime @default(now())
+  endDate     DateTime?
+  trialEndDate DateTime?
+  autoRenew   Boolean  @default(true)
+  waveCheckoutId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  payments    SaasPayment[]
+
+  @@index([companyId])
+  @@index([status])
+}
+
+// ===== SaaS PAYMENTS =====
+model SaasPayment {
+  id          String   @id @default(cuid())
+  subscriptionId String
+  companyId   String
+  amount      Float
+  currency    String   @default("XOF")
+  status      String   @default("pending") // pending, completed, failed, refunded
+  wavePaymentId String?
+  waveCheckoutId String?
+  paidAt      DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId])
+  @@index([companyId])
+  @@index([status])
 }
