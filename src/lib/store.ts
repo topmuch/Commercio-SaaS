@@ -22,6 +22,8 @@ export type PageId =
   | 'settings'
   | 'users'
   | 'install-app'
+  | 'super-admin-companies'
+  | 'super-admin-settings'
 
 export type Role = 'super_admin' | 'admin' | 'director' | 'commercial' | 'accountant'
 

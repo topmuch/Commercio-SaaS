@@ -39,6 +39,13 @@ const adminPages: PageId[] = [
   'install-app',
 ]
 
+// Super admin specific pages (platform level)
+const superAdminPages: PageId[] = [
+  ...adminPages,
+  'super-admin-companies',
+  'super-admin-settings',
+]
+
 // Commercial: field sales agent
 const commercialPages: PageId[] = [
   'dashboard',
@@ -66,7 +73,7 @@ const accountantPages: PageId[] = [
 ]
 
 export const rolePermissions: Record<Role, PageId[]> = {
-  super_admin: adminPages,
+  super_admin: superAdminPages,
   admin: adminPages,
   director: adminPages,
   commercial: commercialPages,

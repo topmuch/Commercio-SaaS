@@ -24,6 +24,8 @@ import {
   CreditCard,
   Headphones,
   Key,
+  Building2,
+  Shield,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -96,6 +98,13 @@ const navGroups: NavGroup[] = [
     items: [
       { id: 'support-tickets', label: 'Support', icon: Headphones },
       { id: 'api-keys', label: 'Clés API', icon: Key },
+    ],
+  },
+  {
+    label: 'Super Admin',
+    items: [
+      { id: 'super-admin-companies', label: 'Entreprises', icon: Building2 },
+      { id: 'super-admin-settings', label: 'Paramètres Système', icon: Shield },
     ],
   },
   {

@@ -23,6 +23,7 @@ import {
   CreditCard,
   MessageCircle,
   StickyNote,
+  Send,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -39,6 +40,7 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { useAppStore } from '@/lib/store'
+import { createWhatsAppLink, generateInvoiceMessage, generateQuoteMessage } from '@/lib/whatsapp'
 import type { Client, Order, Quote, Invoice, Visit, Discussion, Payment } from '@/lib/types'
 
 function formatCFA(amount: number): string {
@@ -576,31 +578,54 @@ export default function ClientDetail() {
                         <TableHead className="text-right">Total</TableHead>
                         <TableHead>Valide jusqu&apos;au</TableHead>
                         <TableHead>Date</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {client.quotes.map((quote) => (
-                        <TableRow key={quote.id}>
-                          <TableCell className="font-medium text-sm">{quote.number}</TableCell>
-                          <TableCell>
-                            <Badge variant="secondary" className={`text-[11px] ${quoteStatusColors[quote.status] || ''}`}>
-                              {statusLabels[quote.status] || quote.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {quote.commercial?.name || '-'}
-                          </TableCell>
-                          <TableCell className="text-right font-medium text-sm">
-                            {formatCFA(quote.total)}
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {quote.validUntil ? formatDateShort(quote.validUntil) : '-'}
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {formatDateShort(quote.createdAt)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {client.quotes.map((quote) => {
+                        const whatsappMessage = generateQuoteMessage(quote)
+                        const whatsappLink = client.whatsapp
+                          ? createWhatsAppLink(client.whatsapp, whatsappMessage)
+                          : ''
+
+                        return (
+                          <TableRow key={quote.id}>
+                            <TableCell className="font-medium text-sm">{quote.number}</TableCell>
+                            <TableCell>
+                              <Badge variant="secondary" className={`text-[11px] ${quoteStatusColors[quote.status] || ''}`}>
+                                {statusLabels[quote.status] || quote.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {quote.commercial?.name || '-'}
+                            </TableCell>
+                            <TableCell className="text-right font-medium text-sm">
+                              {formatCFA(quote.total)}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {quote.validUntil ? formatDateShort(quote.validUntil) : '-'}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {formatDateShort(quote.createdAt)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {whatsappLink ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="gap-1.5 hover:bg-green-50 dark:hover:bg-green-900/20 text-green-600 dark:text-green-400"
+                                  onClick={() => window.open(whatsappLink, '_blank')}
+                                >
+                                  <Send className="h-3.5 w-3.5" />
+                                  <span className="hidden sm:inline">WhatsApp</span>
+                                </Button>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">Pas de WhatsApp</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
                     </TableBody>
                   </Table>
                 </div>
@@ -636,34 +661,57 @@ export default function ClientDetail() {
                         <TableHead className="text-right">Payé</TableHead>
                         <TableHead>Échéance</TableHead>
                         <TableHead>Date</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {client.invoices.map((invoice) => (
-                        <TableRow key={invoice.id}>
-                          <TableCell className="font-medium text-sm">{invoice.number}</TableCell>
-                          <TableCell>
-                            <Badge variant="secondary" className={`text-[11px] ${invoiceStatusColors[invoice.status] || ''}`}>
-                              {statusLabels[invoice.status] || invoice.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {invoice.commercial?.name || '-'}
-                          </TableCell>
-                          <TableCell className="text-right font-medium text-sm">
-                            {formatCFA(invoice.total)}
-                          </TableCell>
-                          <TableCell className="text-right text-sm text-green-600">
-                            {formatCFA(invoice.paid)}
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {invoice.dueDate ? formatDateShort(invoice.dueDate) : '-'}
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {formatDateShort(invoice.createdAt)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {client.invoices.map((invoice) => {
+                        const whatsappMessage = generateInvoiceMessage(invoice)
+                        const whatsappLink = client.whatsapp
+                          ? createWhatsAppLink(client.whatsapp, whatsappMessage)
+                          : ''
+
+                        return (
+                          <TableRow key={invoice.id}>
+                            <TableCell className="font-medium text-sm">{invoice.number}</TableCell>
+                            <TableCell>
+                              <Badge variant="secondary" className={`text-[11px] ${invoiceStatusColors[invoice.status] || ''}`}>
+                                {statusLabels[invoice.status] || invoice.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {invoice.commercial?.name || '-'}
+                            </TableCell>
+                            <TableCell className="text-right font-medium text-sm">
+                              {formatCFA(invoice.total)}
+                            </TableCell>
+                            <TableCell className="text-right text-sm text-green-600">
+                              {formatCFA(invoice.paid)}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {invoice.dueDate ? formatDateShort(invoice.dueDate) : '-'}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {formatDateShort(invoice.createdAt)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {whatsappLink ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="gap-1.5 hover:bg-green-50 dark:hover:bg-green-900/20 text-green-600 dark:text-green-400"
+                                  onClick={() => window.open(whatsappLink, '_blank')}
+                                >
+                                  <Send className="h-3.5 w-3.5" />
+                                  <span className="hidden sm:inline">WhatsApp</span>
+                                </Button>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">Pas de WhatsApp</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
                     </TableBody>
                   </Table>
                 </div>

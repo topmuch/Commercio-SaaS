@@ -1,0 +1,1174 @@
+     1→'use client'
+     2→
+     3→import React, { useState, useEffect, useCallback } from 'react'
+     4→import {
+     5→  Receipt,
+     6→  Plus,
+     7→  Search,
+     8→  Eye,
+     9→  Edit,
+    10→  Trash2,
+    11→  CreditCard,
+    12→  Download,
+    13→  Mail,
+    14→  AlertCircle,
+    15→  CheckCircle,
+    16→  DollarSign,
+    17→  TrendingDown,
+    18→  Clock,
+    19→  CalendarDays,
+    20→  X,
+    21→} from 'lucide-react'
+    22→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+    23→import { Button } from '@/components/ui/button'
+    24→import { Input } from '@/components/ui/input'
+    25→import { Badge } from '@/components/ui/badge'
+    26→import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    27→import { Label } from '@/components/ui/label'
+    28→import { Textarea } from '@/components/ui/textarea'
+    29→import { Progress } from '@/components/ui/progress'
+    30→import {
+    31→  Dialog,
+    32→  DialogContent,
+    33→  DialogHeader,
+    34→  DialogTitle,
+    35→  DialogFooter,
+    36→} from '@/components/ui/dialog'
+    37→import {
+    38→  AlertDialog,
+    39→  AlertDialogAction,
+    40→  AlertDialogCancel,
+    41→  AlertDialogContent,
+    42→  AlertDialogDescription,
+    43→  AlertDialogFooter,
+    44→  AlertDialogHeader,
+    45→  AlertDialogTitle,
+    46→} from '@/components/ui/alert-dialog'
+    47→import {
+    48→  Table,
+    49→  TableBody,
+    50→  TableCell,
+    51→  TableHead,
+    52→  TableHeader,
+    53→  TableRow,
+    54→} from '@/components/ui/table'
+    55→import {
+    56→  Select,
+    57→  SelectContent,
+    58→  SelectItem,
+    59→  SelectTrigger,
+    60→  SelectValue,
+    61→} from '@/components/ui/select'
+    62→import { Skeleton } from '@/components/ui/skeleton'
+    63→import { toast } from 'sonner'
+    64→import { ClientSelectWithCreate } from '@/components/shared/client-select-with-create'
+    65→import type { Invoice, Client, Product, Payment } from '@/lib/types'
+    66→
+    67→// ── Helpers ──────────────────────────────────────────────
+    68→function formatCFA(value: number): string {
+    69→  return new Intl.NumberFormat('fr-FR').format(Math.round(value)) + ' CFA'
+    70→}
+    71→
+    72→function formatDate(iso: string): string {
+    73→  return new Date(iso).toLocaleDateString('fr-FR', {
+    74→    day: '2-digit',
+    75→    month: 'short',
+    76→    year: 'numeric',
+    77→  })
+    78→}
+    79→
+    80→const INVOICE_STATUS_MAP: Record<string, { label: string; className: string }> = {
+    81→  paid: { label: 'Payée', className: 'bg-green-100 text-green-700' },
+    82→  partially_paid: { label: 'Partiellement payée', className: 'bg-yellow-100 text-yellow-700' },
+    83→  unpaid: { label: 'Impayée', className: 'bg-gray-100 text-gray-700' },
+    84→  overdue: { label: 'En retard', className: 'bg-red-100 text-red-700' },
+    85→}
+    86→
+    87→const STATUS_TABS = [
+    88→  { value: 'all', label: 'Toutes' },
+    89→  { value: 'paid', label: 'Payée' },
+    90→  { value: 'partially_paid', label: 'Partiellement payée' },
+    91→  { value: 'unpaid', label: 'Impayée' },
+    92→  { value: 'overdue', label: 'En retard' },
+    93→]
+    94→
+    95→interface KPI {
+    96→  totalBilled: number
+    97→  totalPaid: number
+    98→  totalUnpaid: number
+    99→  overdueCount: number
+   100→}
+   101→
+   102→interface InvoiceItemRow {
+   103→  productId: string
+   104→  productName: string
+   105→  quantity: number
+   106→  unitPrice: number
+   107→}
+   108→
+   109→// ── Component ────────────────────────────────────────────
+   110→export default function InvoicesPage() {
+   111→  // toast imported from sonner
+   112→
+   113→  // Data
+   114→  const [invoices, setInvoices] = useState<Invoice[]>([])
+   115→  const [clients, setClients] = useState<Client[]>([])
+   116→  const [products, setProducts] = useState<Product[]>([])
+   117→  const [loading, setLoading] = useState(true)
+   118→  const [kpi, setKpi] = useState<KPI>({ totalBilled: 0, totalPaid: 0, totalUnpaid: 0, overdueCount: 0 })
+   119→
+   120→  // Filters
+   121→  const [activeTab, setActiveTab] = useState('all')
+   122→  const [search, setSearch] = useState('')
+   123→  const [page, setPage] = useState(1)
+   124→  const [totalPages, setTotalPages] = useState(1)
+   125→  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({})
+   126→
+   127→  // Dialog
+   128→  const [dialogOpen, setDialogOpen] = useState(false)
+   129→  const [detailOpen, setDetailOpen] = useState(false)
+   130→  const [paymentOpen, setPaymentOpen] = useState(false)
+   131→  const [editOpen, setEditOpen] = useState(false)
+   132→  const [deleteInvoice, setDeleteInvoice] = useState<Invoice | null>(null)
+   133→  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
+   134→
+   135→  // Create form
+   136→  const [formClientId, setFormClientId] = useState('')
+   137→  const [formNotes, setFormNotes] = useState('')
+   138→  const [formDiscount, setFormDiscount] = useState(0)
+   139→  const [formDueDate, setFormDueDate] = useState('')
+   140→  const [formItems, setFormItems] = useState<InvoiceItemRow[]>([
+   141→    { productId: '', productName: '', quantity: 1, unitPrice: 0 },
+   142→  ])
+   143→  // Payment form
+   144→  const [payAmount, setPayAmount] = useState('')
+   145→  const [payMethod, setPayMethod] = useState('cash')
+   146→  const [payReference, setPayReference] = useState('')
+   147→  const [payNotes, setPayNotes] = useState('')
+   148→
+   149→  // Edit invoice form
+   150→  const [editNotes, setEditNotes] = useState('')
+   151→  const [editDueDate, setEditDueDate] = useState('')
+   152→
+   153→  // ── Fetch invoices ──
+   154→  const fetchInvoices = useCallback(async () => {
+   155→    setLoading(true)
+   156→    try {
+   157→      const params = new URLSearchParams()
+   158→      if (activeTab !== 'all') params.set('status', activeTab)
+   159→      if (search) params.set('search', search)
+   160→      params.set('page', String(page))
+   161→      params.set('limit', '20')
+   162→
+   163→      const res = await fetch(`/api/invoices?${params}`)
+   164→      const json = await res.json()
+   165→      if (json.data) {
+   166→        setInvoices(json.data)
+   167→        setTotalPages(json.totalPages || 1)
+   168→      }
+   169→      if (json.kpi) {
+   170→        setKpi(json.kpi)
+   171→      }
+   172→      if (json.statusCounts) {
+   173→        setStatusCounts(json.statusCounts)
+   174→      }
+   175→    } catch {
+   176→      toast.error('Erreur : Impossible de charger les factures')
+   177→    } finally {
+   178→      setLoading(false)
+   179→    }
+   180→  }, [activeTab, search, page])
+   181→
+   182→  // ── Status counts come from fetchInvoices (no separate call needed) ──
+   183→  // statusCounts is set in fetchInvoices when data.statusCounts is available
+   184→
+   185→  // ── Fetch clients ──
+   186→  const fetchClients = useCallback(async () => {
+   187→    try {
+   188→      const res = await fetch('/api/clients?limit=200')
+   189→      const json = await res.json()
+   190→      if (json.clients) setClients(json.clients)
+   191→    } catch {
+   192→      // silent
+   193→    }
+   194→  }, [])
+   195→
+   196→  // ── Fetch products ──
+   197→  const fetchProducts = useCallback(async () => {
+   198→    try {
+   199→      const res = await fetch('/api/products?limit=200')
+   200→      const json = await res.json()
+   201→      if (json.data) setProducts(json.data)
+   202→    } catch {
+   203→      // silent
+   204→    }
+   205→  }, [])
+   206→
+   207→  useEffect(() => {
+   208→    fetchInvoices()
+   209→    fetchClients()
+   210→    fetchProducts()
+   211→  }, [fetchInvoices, fetchClients, fetchProducts])
+   212→
+   213→  useEffect(() => {
+   214→    setPage(1)
+   215→  }, [activeTab, search])
+   216→
+   217→  // ── Form calculations ──
+   218→  const subtotal = formItems.reduce((s, i) => s + i.quantity * i.unitPrice, 0)
+   219→  const discountAmount = (subtotal * formDiscount) / 100
+   220→  const taxAmount = ((subtotal - discountAmount) * 18) / 100
+   221→  const total = subtotal - discountAmount + taxAmount
+   222→
+   223→  // ── Item management ──
+   224→  const addItem = () => {
+   225→    setFormItems([...formItems, { productId: '', productName: '', quantity: 1, unitPrice: 0 }])
+   226→  }
+   227→
+   228→  const removeItem = (idx: number) => {
+   229→    if (formItems.length > 1) {
+   230→      setFormItems(formItems.filter((_, i) => i !== idx))
+   231→    }
+   232→  }
+   233→
+   234→  const updateItem = (idx: number, field: keyof InvoiceItemRow, value: string | number) => {
+   235→    const updated = [...formItems]
+   236→    if (field === 'productId') {
+   237→      const product = products.find((p) => p.id === value)
+   238→      updated[idx] = {
+   239→        ...updated[idx],
+   240→        productId: value as string,
+   241→        productName: product?.name || '',
+   242→        unitPrice: product?.resellerPrice || product?.price || 0,
+   243→      }
+   244→    } else {
+   245→      ;(updated[idx] as unknown as Record<string, string | number>)[field] = value
+   246→    }
+   247→    setFormItems(updated)
+   248→  }
+   249→
+   250→  // ── Submit invoice ──
+   251→  const handleSubmit = async () => {
+   252→    if (!formClientId) {
+   253→      toast.error('Erreur : Veuillez sélectionner un client')
+   254→      return
+   255→    }
+   256→    const validItems = formItems.filter((i) => i.productId && i.quantity > 0 && i.unitPrice > 0)
+   257→    if (validItems.length === 0) {
+   258→      toast.error('Erreur : Ajoutez au moins un article valide')
+   259→      return
+   260→    }
+   261→
+   262→    try {
+   263→      const res = await fetch('/api/invoices', {
+   264→        method: 'POST',
+   265→        headers: { 'Content-Type': 'application/json' },
+   266→        body: JSON.stringify({
+   267→          clientId: formClientId,
+   268→          items: validItems.map((i) => ({
+   269→            productId: i.productId,
+   270→            quantity: i.quantity,
+   271→            unitPrice: i.unitPrice,
+   272→          })),
+   273→          discount: formDiscount,
+   274→          tax: 18,
+   275→          dueDate: formDueDate || undefined,
+   276→          notes: formNotes || undefined,
+   277→        }),
+   278→      })
+   279→      const json = await res.json()
+   280→      if (json.error) {
+   281→        toast.error('Erreur : ' + json.error)
+   282→      } else {
+   283→        toast.success('Facture créée avec succès')
+   284→        setDialogOpen(false)
+   285→        resetForm()
+   286→        fetchInvoices()
+   287→      }
+   288→    } catch {
+   289→      toast.error('Erreur lors de la création')
+   290→    }
+   291→  }
+   292→
+   293→  const resetForm = () => {
+   294→    setFormClientId('')
+   295→    setFormNotes('')
+   296→    setFormDiscount(0)
+   297→    setFormDueDate('')
+   298→    setFormItems([{ productId: '', productName: '', quantity: 1, unitPrice: 0 }])
+   299→  }
+   300→
+   301→  // ── Submit payment ──
+   302→  const handlePayment = async () => {
+   303→    if (!selectedInvoice || !payAmount || parseFloat(payAmount) <= 0) {
+   304→      toast.error('Erreur : Montant invalide')
+   305→      return
+   306→    }
+   307→
+   308→    const remaining = selectedInvoice.total - selectedInvoice.paid
+   309→    if (parseFloat(payAmount) > remaining) {
+   310→      toast.error('Erreur : Le montant dépasse le restant dû (' + formatCFA(remaining) + ')')
+   311→      return
+   312→    }
+   313→
+   314→    try {
+   315→      const res = await fetch(`/api/invoices/${selectedInvoice.id}`, {
+   316→        method: 'PUT',
+   317→        headers: { 'Content-Type': 'application/json' },
+   318→        body: JSON.stringify({
+   319→          amount: parseFloat(payAmount),
+   320→          method: payMethod,
+   321→          reference: payReference || undefined,
+   322→          notes: payNotes || undefined,
+   323→        }),
+   324→      })
+   325→      const json = await res.json()
+   326→      if (json.error) {
+   327→        toast.error('Erreur : ' + json.error)
+   328→      } else {
+   329→        toast.success('Paiement enregistré avec succès')
+   330→        setPaymentOpen(false)
+   331→        resetPaymentForm()
+   332→        fetchInvoices()
+   333→      }
+   334→    } catch {
+   335→      toast.error("Erreur lors de l'enregistrement")
+   336→    }
+   337→  }
+   338→
+   339→  // ── Download PDF ──
+   340→  const downloadPDF = async (invoiceId: string, invoiceNumber: string) => {
+   341→    try {
+   342→      const res = await fetch(`/api/invoices/${invoiceId}/pdf`)
+   343→      if (!res.ok) throw new Error('Erreur de génération')
+   344→      const blob = await res.blob()
+   345→      const url = window.URL.createObjectURL(blob)
+   346→      const a = document.createElement('a')
+   347→      a.href = url
+   348→      a.download = `Facture-${invoiceNumber}.pdf`
+   349→      document.body.appendChild(a)
+   350→      a.click()
+   351→      window.URL.revokeObjectURL(url)
+   352→      document.body.removeChild(a)
+   353→      toast('PDF téléchargé : Facture ' + invoiceNumber)
+   354→    } catch {
+   355→      toast.error('Erreur : Impossible de télécharger le PDF')
+   356→    }
+   357→  }
+   358→
+   359→  // ── Share via WhatsApp ──
+   360→  const shareInvoice = (invoice: Invoice) => {
+   361→    const clientName = invoice.client?.companyName || 'Client'
+   362→    const total = formatCFA(invoice.total)
+   363→    const text = `Bonjour ${clientName},\n\nVoici votre facture ${invoice.number} d'un montant de ${total}.\n\nMerci de votre confiance.\n— Teranga Biz`
+   364→    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`
+   365→    window.open(whatsappUrl, '_blank')
+   366→  }
+   367→
+   368→  const resetPaymentForm = () => {
+   369→    setPayAmount('')
+   370→    setPayMethod('cash')
+   371→    setPayReference('')
+   372→    setPayNotes('')
+   373→  }
+   374→
+   375→  const openPaymentDialog = (invoice: Invoice) => {
+   376→    setSelectedInvoice(invoice)
+   377→    setPaymentOpen(true)
+   378→    resetPaymentForm()
+   379→  }
+   380→
+   381→  // ── Edit invoice ──
+   382→  const openEditDialog = (invoice: Invoice) => {
+   383→    setSelectedInvoice(invoice)
+   384→    setEditNotes(invoice.notes || '')
+   385→    setEditDueDate(invoice.dueDate ? invoice.dueDate.split('T')[0] : '')
+   386→    setEditOpen(true)
+   387→  }
+   388→
+   389→  const handleEditInvoice = async () => {
+   390→    if (!selectedInvoice) return
+   391→    try {
+   392→      const res = await fetch(`/api/invoices/${selectedInvoice.id}`, {
+   393→        method: 'PUT',
+   394→        headers: { 'Content-Type': 'application/json' },
+   395→        body: JSON.stringify({
+   396→          notes: editNotes || undefined,
+   397→          dueDate: editDueDate || undefined,
+   398→        }),
+   399→      })
+   400→      const json = await res.json()
+   401→      if (json.error) {
+   402→        toast.error('Erreur : ' + json.error)
+   403→      } else {
+   404→        toast.success('Facture modifiée avec succès')
+   405→        setEditOpen(false)
+   406→        fetchInvoices()
+   407→      }
+   408→    } catch {
+   409→      toast.error('Erreur lors de la modification')
+   410→    }
+   411→  }
+   412→
+   413→  // ── Delete invoice ──
+   414→  const handleDeleteInvoice = async () => {
+   415→    if (!deleteInvoice) return
+   416→    try {
+   417→      const res = await fetch(`/api/invoices/${deleteInvoice.id}`, { method: 'DELETE' })
+   418→      const json = await res.json()
+   419→      if (json.error) {
+   420→        toast.error('Erreur : ' + json.error)
+   421→      } else {
+   422→        toast.success('Facture supprimée avec succès')
+   423→        setDeleteInvoice(null)
+   424→        fetchInvoices()
+   425→      }
+   426→    } catch {
+   427→      toast.error('Erreur lors de la suppression')
+   428→    }
+   429→  }
+   430→
+   431→  return (
+   432→    <div className="flex flex-col gap-6 p-4 lg:p-6">
+   433→      {/* Header */}
+   434→      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+   435→        <div>
+   436→          <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+   437→            <Receipt className="h-6 w-6 text-primary" />
+   438→            Facturation
+   439→          </h2>
+   440→          <p className="text-sm text-muted-foreground mt-1">
+   441→            Gérez vos factures et suivez les paiements
+   442→          </p>
+   443→        </div>
+   444→        <Button onClick={() => setDialogOpen(true)} className="shrink-0">
+   445→          <Plus className="h-4 w-4 mr-2" />
+   446→          Nouvelle facture
+   447→        </Button>
+   448→      </div>
+   449→
+   450→      {/* KPI Row */}
+   451→      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+   452→        <Card className="border-l-4 border-l-primary">
+   453→          <CardContent className="p-4">
+   454→            <div className="flex items-center gap-3">
+   455→              <div className="rounded-full bg-primary/10 p-2">
+   456→                <DollarSign className="h-5 w-5 text-primary" />
+   457→              </div>
+   458→              <div>
+   459→                <p className="text-xs text-muted-foreground font-medium">Total facturé</p>
+   460→                <p className="text-lg font-bold">{formatCFA(kpi.totalBilled)}</p>
+   461→              </div>
+   462→            </div>
+   463→          </CardContent>
+   464→        </Card>
+   465→        <Card className="border-l-4 border-l-green-500">
+   466→          <CardContent className="p-4">
+   467→            <div className="flex items-center gap-3">
+   468→              <div className="rounded-full bg-green-500/10 p-2">
+   469→                <CheckCircle className="h-5 w-5 text-green-600" />
+   470→              </div>
+   471→              <div>
+   472→                <p className="text-xs text-muted-foreground font-medium">Total payé</p>
+   473→                <p className="text-lg font-bold text-green-600">{formatCFA(kpi.totalPaid)}</p>
+   474→              </div>
+   475→            </div>
+   476→          </CardContent>
+   477→        </Card>
+   478→        <Card className="border-l-4 border-l-orange-500">
+   479→          <CardContent className="p-4">
+   480→            <div className="flex items-center gap-3">
+   481→              <div className="rounded-full bg-orange-500/10 p-2">
+   482→                <TrendingDown className="h-5 w-5 text-orange-600" />
+   483→              </div>
+   484→              <div>
+   485→                <p className="text-xs text-muted-foreground font-medium">Total impayé</p>
+   486→                <p className="text-lg font-bold text-orange-600">{formatCFA(kpi.totalUnpaid)}</p>
+   487→              </div>
+   488→            </div>
+   489→          </CardContent>
+   490→        </Card>
+   491→        <Card className="border-l-4 border-l-red-500">
+   492→          <CardContent className="p-4">
+   493→            <div className="flex items-center gap-3">
+   494→              <div className="rounded-full bg-red-500/10 p-2">
+   495→                <AlertCircle className="h-5 w-5 text-red-600" />
+   496→              </div>
+   497→              <div>
+   498→                <p className="text-xs text-muted-foreground font-medium">En retard</p>
+   499→                <p className="text-lg font-bold text-red-600">{kpi.overdueCount} facture(s)</p>
+   500→              </div>
+   501→            </div>
+   502→          </CardContent>
+   503→        </Card>
+   504→      </div>
+   505→
+   506→      {/* Status Tabs */}
+   507→      <Tabs value={activeTab} onValueChange={setActiveTab}>
+   508→        <TabsList className="flex flex-wrap h-auto gap-1 bg-muted/50 p-1">
+   509→          {STATUS_TABS.map((tab) => (
+   510→            <TabsTrigger
+   511→              key={tab.value}
+   512→              value={tab.value}
+   513→              className="flex items-center gap-1.5 px-3 py-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs sm:text-sm"
+   514→            >
+   515→              {tab.label}
+   516→              {statusCounts[tab.value] !== undefined && (
+   517→                <Badge
+   518→                  variant="secondary"
+   519→                  className="h-5 min-w-5 px-1.5 text-[10px] font-semibold"
+   520→                >
+   521→                  {statusCounts[tab.value]}
+   522→                </Badge>
+   523→              )}
+   524→            </TabsTrigger>
+   525→          ))}
+   526→        </TabsList>
+   527→      </Tabs>
+   528→
+   529→      {/* Search */}
+   530→      <div className="flex items-center gap-3">
+   531→        <div className="relative flex-1 max-w-sm">
+   532→          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   533→          <Input
+   534→            placeholder="Rechercher par N°, client, commercial..."
+   535→            className="pl-9"
+   536→            value={search}
+   537→            onChange={(e) => setSearch(e.target.value)}
+   538→          />
+   539→        </div>
+   540→      </div>
+   541→
+   542→      {/* Invoices Table */}
+   543→      <Card>
+   544→        <CardContent className="p-0">
+   545→          <div className="overflow-x-auto">
+   546→            <Table>
+   547→              <TableHeader>
+   548→                <TableRow>
+   549→                  <TableHead className="w-[120px]">N° Facture</TableHead>
+   550→                  <TableHead>Client</TableHead>
+   551→                  <TableHead className="hidden md:table-cell">Commercial</TableHead>
+   552→                  <TableHead className="text-right">Total</TableHead>
+   553→                  <TableHead className="text-right">Payé</TableHead>
+   554→                  <TableHead className="text-center">Statut</TableHead>
+   555→                  <TableHead className="hidden sm:table-cell">Échéance</TableHead>
+   556→                  <TableHead className="text-right">Actions</TableHead>
+   557→                </TableRow>
+   558→              </TableHeader>
+   559→              <TableBody>
+   560→                {loading ? (
+   561→                  Array.from({ length: 6 }).map((_, i) => (
+   562→                    <TableRow key={i}>
+   563→                      <TableCell colSpan={8}>
+   564→                        <Skeleton className="h-12 w-full" />
+   565→                      </TableCell>
+   566→                    </TableRow>
+   567→                  ))
+   568→                ) : invoices.length === 0 ? (
+   569→                  <TableRow>
+   570→                    <TableCell colSpan={8} className="text-center py-12">
+   571→                      <Receipt className="h-12 w-12 mx-auto mb-3 text-muted-foreground/40" />
+   572→                      <p className="text-sm text-muted-foreground">Aucune facture trouvée</p>
+   573→                    </TableCell>
+   574→                  </TableRow>
+   575→                ) : (
+   576→                  invoices.map((invoice) => {
+   577→                    const statusInfo = INVOICE_STATUS_MAP[invoice.status] || {
+   578→                      label: invoice.status,
+   579→                      className: 'bg-gray-100 text-gray-700',
+   580→                    }
+   581→                    const paidPercent = invoice.total > 0
+   582→                      ? Math.min(100, Math.round((invoice.paid / invoice.total) * 100))
+   583→                      : 0
+   584→                    return (
+   585→                      <TableRow key={invoice.id} className="hover:bg-muted/50">
+   586→                        <TableCell className="font-mono text-xs font-medium">
+   587→                          {invoice.number}
+   588→                        </TableCell>
+   589→                        <TableCell>
+   590→                          <div>
+   591→                            <p className="font-medium text-sm">{invoice.client?.companyName}</p>
+   592→                            <p className="text-xs text-muted-foreground">{invoice.client?.contactName}</p>
+   593→                          </div>
+   594→                        </TableCell>
+   595→                        <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+   596→                          {invoice.commercial?.name || '—'}
+   597→                        </TableCell>
+   598→                        <TableCell className="text-right font-medium text-sm">
+   599→                          {formatCFA(invoice.total)}
+   600→                        </TableCell>
+   601→                        <TableCell className="text-right">
+   602→                          <div className="min-w-28">
+   603→                            <div className="flex justify-between text-xs mb-1">
+   604→                              <span className="text-muted-foreground">{paidPercent}%</span>
+   605→                              <span className="font-medium">{formatCFA(invoice.paid)}</span>
+   606→                            </div>
+   607→                            <Progress
+   608→                              value={paidPercent}
+   609→                              className="h-1.5"
+   610→                            />
+   611→                          </div>
+   612→                        </TableCell>
+   613→                        <TableCell className="text-center">
+   614→                          <Badge variant="secondary" className={statusInfo.className}>
+   615→                            {statusInfo.label}
+   616→                          </Badge>
+   617→                        </TableCell>
+   618→                        <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
+   619→                          {invoice.dueDate ? (
+   620→                            <span
+   621→                              className={`flex items-center gap-1 ${
+   622→                                invoice.status === 'overdue' ? 'text-red-600 font-medium' : ''
+   623→                              }`}
+   624→                            >
+   625→                              {invoice.status === 'overdue' && (
+   626→                                <AlertCircle className="h-3 w-3" />
+   627→                              )}
+   628→                              <CalendarDays className="h-3 w-3" />
+   629→                              {formatDate(invoice.dueDate)}
+   630→                            </span>
+   631→                          ) : (
+   632→                            '—'
+   633→                          )}
+   634→                        </TableCell>
+   635→                        <TableCell className="text-right">
+   636→                          <div className="flex items-center justify-end gap-1">
+   637→                            <Button
+   638→                              variant="ghost"
+   639→                              size="icon"
+   640→                              className="h-8 w-8 text-emerald-600"
+   641→                              onClick={() => downloadPDF(invoice.id, invoice.number)}
+   642→                              title="Télécharger PDF"
+   643→                            >
+   644→                              <Download className="h-3.5 w-3.5" />
+   645→                            </Button>
+   646→                            <Button
+   647→                              variant="ghost"
+   648→                              size="icon"
+   649→                              className="h-8 w-8 text-green-600"
+   650→                              onClick={() => shareInvoice(invoice)}
+   651→                              title="Envoyer par WhatsApp"
+   652→                            >
+   653→                              <Mail className="h-3.5 w-3.5" />
+   654→                            </Button>
+   655→                            {(invoice.status === 'unpaid' ||
+   656→                              invoice.status === 'partially_paid' ||
+   657→                              invoice.status === 'overdue') && (
+   658→                              <Button
+   659→                                variant="ghost"
+   660→                                size="icon"
+   661→                                className="h-8 w-8 text-green-600"
+   662→                                onClick={() => openPaymentDialog(invoice)}
+   663→                                title="Enregistrer un paiement"
+   664→                              >
+   665→                                <CreditCard className="h-3.5 w-3.5" />
+   666→                              </Button>
+   667→                            )}
+   668→                            <Button
+   669→                              variant="ghost"
+   670→                              size="icon"
+   671→                              className="h-8 w-8"
+   672→                              onClick={() => {
+   673→                                setSelectedInvoice(invoice)
+   674→                                setDetailOpen(true)
+   675→                              }}
+   676→                            >
+   677→                              <Eye className="h-3.5 w-3.5" />
+   678→                            </Button>
+   679→                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(invoice)}>
+   680→                              <Edit className="h-3.5 w-3.5" />
+   681→                            </Button>
+   682→                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteInvoice(invoice)}>
+   683→                              <Trash2 className="h-3.5 w-3.5" />
+   684→                            </Button>
+   685→                          </div>
+   686→                        </TableCell>
+   687→                      </TableRow>
+   688→                    )
+   689→                  })
+   690→                )}
+   691→              </TableBody>
+   692→            </Table>
+   693→          </div>
+   694→
+   695→          {/* Pagination */}
+   696→          {totalPages > 1 && (
+   697→            <div className="flex items-center justify-between border-t px-4 py-3">
+   698→              <p className="text-sm text-muted-foreground">
+   699→                Page {page} sur {totalPages}
+   700→              </p>
+   701→              <div className="flex gap-2">
+   702→                <Button
+   703→                  variant="outline"
+   704→                  size="sm"
+   705→                  disabled={page <= 1}
+   706→                  onClick={() => setPage((p) => p - 1)}
+   707→                >
+   708→                  Précédent
+   709→                </Button>
+   710→                <Button
+   711→                  variant="outline"
+   712→                  size="sm"
+   713→                  disabled={page >= totalPages}
+   714→                  onClick={() => setPage((p) => p + 1)}
+   715→                >
+   716→                  Suivant
+   717→                </Button>
+   718→              </div>
+   719→            </div>
+   720→          )}
+   721→        </CardContent>
+   722→      </Card>
+   723→
+   724→      {/* ── New Invoice Dialog ── */}
+   725→      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm() }}>
+   726→        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+   727→          <DialogHeader>
+   728→            <DialogTitle className="flex items-center gap-2">
+   729→              <Plus className="h-5 w-5" />
+   730→              Nouvelle facture
+   731→            </DialogTitle>
+   732→          </DialogHeader>
+   733→
+   734→          <div className="space-y-6">
+   735→            {/* Client Select with inline creation */}
+   736→            <ClientSelectWithCreate
+   737→              clients={clients}
+   738→              value={formClientId}
+   739→              onClientChange={setFormClientId}
+   740→              onClientsRefresh={fetchClients}
+   741→            />
+   742→
+   743→            {/* Due Date */}
+   744→            <div className="space-y-2">
+   745→              <Label className="flex items-center gap-1.5">
+   746→                <CalendarDays className="h-3.5 w-3.5" />
+   747→                Date d'échéance
+   748→              </Label>
+   749→              <Input
+   750→                type="date"
+   751→                value={formDueDate}
+   752→                onChange={(e) => setFormDueDate(e.target.value)}
+   753→                min={new Date().toISOString().split('T')[0]}
+   754→              />
+   755→            </div>
+   756→
+   757→            {/* Items */}
+   758→            <div className="space-y-2">
+   759→              <Label>Articles *</Label>
+   760→              <div className="space-y-3">
+   761→                {formItems.map((item, idx) => (
+   762→                  <div key={idx} className="flex flex-col sm:flex-row gap-2 items-start sm:items-end">
+   763→                    <div className="flex-1 w-full">
+   764→                      <Select
+   765→                        value={item.productId}
+   766→                        onValueChange={(val) => updateItem(idx, 'productId', val)}
+   767→                      >
+   768→                        <SelectTrigger className="w-full">
+   769→                          <SelectValue placeholder="Sélectionner un produit" />
+   770→                        </SelectTrigger>
+   771→                        <SelectContent className="max-h-60">
+   772→                          {products.map((p) => (
+   773→                            <SelectItem key={p.id} value={p.id}>
+   774→                              <span className="font-medium">{p.name}</span>
+   775→                              <span className="text-muted-foreground ml-2 text-xs">
+   776→                                ({p.reference}) — {formatCFA(p.resellerPrice || p.price)}
+   777→                              </span>
+   778→                            </SelectItem>
+   779→                          ))}
+   780→                        </SelectContent>
+   781→                      </Select>
+   782→                    </div>
+   783→                    <div className="w-24">
+   784→                      <Input
+   785→                        type="number"
+   786→                        placeholder="Qté"
+   787→                        min={1}
+   788→                        value={item.quantity}
+   789→                        onChange={(e) =>
+   790→                          updateItem(idx, 'quantity', Math.max(1, parseInt(e.target.value) || 1))
+   791→                        }
+   792→                      />
+   793→                    </div>
+   794→                    <div className="w-32">
+   795→                      <Input
+   796→                        type="number"
+   797→                        placeholder="Prix unit."
+   798→                        min={0}
+   799→                        value={item.unitPrice}
+   800→                        onChange={(e) =>
+   801→                          updateItem(idx, 'unitPrice', Math.max(0, parseFloat(e.target.value) || 0))
+   802→                        }
+   803→                      />
+   804→                    </div>
+   805→                    <div className="w-28 text-right font-medium text-sm py-2">
+   806→                      {formatCFA(item.quantity * item.unitPrice)}
+   807→                    </div>
+   808→                    <Button
+   809→                      variant="ghost"
+   810→                      size="icon"
+   811→                      className="h-9 w-9 shrink-0 text-destructive"
+   812→                      onClick={() => removeItem(idx)}
+   813→                      disabled={formItems.length <= 1}
+   814→                    >
+   815→                      <X className="h-4 w-4" />
+   816→                    </Button>
+   817→                  </div>
+   818→                ))}
+   819→              </div>
+   820→              <Button variant="outline" size="sm" onClick={addItem} className="mt-2">
+   821→                <Plus className="h-3.5 w-3.5 mr-1" />
+   822→                Ajouter un article
+   823→              </Button>
+   824→            </div>
+   825→
+   826→            {/* Totals */}
+   827→            <Card className="bg-muted/40">
+   828→              <CardContent className="p-4 space-y-2">
+   829→                <div className="flex justify-between text-sm">
+   830→                  <span className="text-muted-foreground">Sous-total</span>
+   831→                  <span className="font-medium">{formatCFA(subtotal)}</span>
+   832→                </div>
+   833→                <div className="flex items-center justify-between text-sm gap-2">
+   834→                  <span className="text-muted-foreground">Remise</span>
+   835→                  <div className="flex items-center gap-1">
+   836→                    <Input
+   837→                      type="number"
+   838→                      min={0}
+   839→                      max={100}
+   840→                      value={formDiscount}
+   841→                      onChange={(e) => setFormDiscount(Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)))}
+   842→                      className="w-16 h-7 text-center text-xs"
+   843→                    />
+   844→                    <span className="text-xs text-muted-foreground">%</span>
+   845→                    <span className="font-medium ml-2 text-red-500">-{formatCFA(discountAmount)}</span>
+   846→                  </div>
+   847→                </div>
+   848→                <div className="flex justify-between text-sm">
+   849→                  <span className="text-muted-foreground">TVA (18%)</span>
+   850→                  <span className="font-medium">{formatCFA(taxAmount)}</span>
+   851→                </div>
+   852→                <div className="border-t pt-2 flex justify-between font-bold">
+   853→                  <span>Total TTC</span>
+   854→                  <span className="text-primary">{formatCFA(total)}</span>
+   855→                </div>
+   856→              </CardContent>
+   857→            </Card>
+   858→
+   859→            {/* Notes */}
+   860→            <div className="space-y-2">
+   861→              <Label>Notes</Label>
+   862→              <Textarea
+   863→                placeholder="Notes ou conditions de paiement (optionnel)..."
+   864→                value={formNotes}
+   865→                onChange={(e) => setFormNotes(e.target.value)}
+   866→                rows={3}
+   867→              />
+   868→            </div>
+   869→          </div>
+   870→
+   871→          <DialogFooter className="gap-2">
+   872→            <Button variant="outline" onClick={() => { setDialogOpen(false); resetForm() }}>
+   873→              Annuler
+   874→            </Button>
+   875→            <Button onClick={handleSubmit} className="min-w-32">
+   876→              Créer la facture
+   877→            </Button>
+   878→          </DialogFooter>
+   879→        </DialogContent>
+   880→      </Dialog>
+   881→
+   882→      {/* ── Payment Dialog ── */}
+   883→      <Dialog open={paymentOpen} onOpenChange={(open) => { setPaymentOpen(open); if (!open) resetPaymentForm() }}>
+   884→        <DialogContent className="max-w-md">
+   885→          <DialogHeader>
+   886→            <DialogTitle className="flex items-center gap-2">
+   887→              <CreditCard className="h-5 w-5 text-green-600" />
+   888→              Enregistrer un paiement
+   889→            </DialogTitle>
+   890→          </DialogHeader>
+   891→
+   892→          {selectedInvoice && (
+   893→            <div className="space-y-5">
+   894→              {/* Invoice Summary */}
+   895→              <Card className="bg-muted/40">
+   896→                <CardContent className="p-3">
+   897→                  <div className="flex justify-between text-sm mb-1">
+   898→                    <span className="text-muted-foreground">Facture</span>
+   899→                    <span className="font-mono font-medium">{selectedInvoice.number}</span>
+   900→                  </div>
+   901→                  <div className="flex justify-between text-sm mb-1">
+   902→                    <span className="text-muted-foreground">Client</span>
+   903→                    <span className="font-medium">{selectedInvoice.client?.companyName}</span>
+   904→                  </div>
+   905→                  <div className="flex justify-between text-sm mb-1">
+   906→                    <span className="text-muted-foreground">Total</span>
+   907→                    <span className="font-bold">{formatCFA(selectedInvoice.total)}</span>
+   908→                  </div>
+   909→                  <div className="flex justify-between text-sm">
+   910→                    <span className="text-muted-foreground">Reste à payer</span>
+   911→                    <span className="font-bold text-orange-600">
+   912→                      {formatCFA(selectedInvoice.total - selectedInvoice.paid)}
+   913→                    </span>
+   914→                  </div>
+   915→                  <Progress
+   916→                    value={
+   917→                      selectedInvoice.total > 0
+   918→                        ? Math.round((selectedInvoice.paid / selectedInvoice.total) * 100)
+   919→                        : 0
+   920→                    }
+   921→                    className="h-2 mt-2"
+   922→                  />
+   923→                </CardContent>
+   924→              </Card>
+   925→
+   926→              {/* Payment Amount */}
+   927→              <div className="space-y-2">
+   928→                <Label>Montant du paiement *</Label>
+   929→                <div className="relative">
+   930→                  <Input
+   931→                    type="number"
+   932→                    min={0}
+   933→                    step={0.01}
+   934→                    placeholder="0.00"
+   935→                    value={payAmount}
+   936→                    onChange={(e) => setPayAmount(e.target.value)}
+   937→                    max={selectedInvoice.total - selectedInvoice.paid}
+   938→                  />
+   939→                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+   940→                    CFA
+   941→                  </span>
+   942→                </div>
+   943→                {payAmount && parseFloat(payAmount) > 0 && (
+   944→                  <p className="text-xs text-muted-foreground">
+   945→                    Reste après paiement:{' '}
+   946→                    <span className="font-medium">
+   947→                      {formatCFA(
+   948→                        Math.max(0, selectedInvoice.total - selectedInvoice.paid - parseFloat(payAmount))
+   949→                      )}
+   950→                    </span>
+   951→                  </p>
+   952→                )}
+   953→              </div>
+   954→
+   955→              {/* Payment Method */}
+   956→              <div className="space-y-2">
+   957→                <Label>Mode de paiement</Label>
+   958→                <Select value={payMethod} onValueChange={setPayMethod}>
+   959→                  <SelectTrigger>
+   960→                    <SelectValue />
+   961→                  </SelectTrigger>
+   962→                  <SelectContent>
+   963→                    <SelectItem value="cash">Espèces</SelectItem>
+   964→                    <SelectItem value="bank_transfer">Virement bancaire</SelectItem>
+   965→                    <SelectItem value="check">Chèque</SelectItem>
+   966→                    <SelectItem value="mobile_payment">Paiement mobile</SelectItem>
+   967→                  </SelectContent>
+   968→                </Select>
+   969→              </div>
+   970→
+   971→              {/* Reference */}
+   972→              <div className="space-y-2">
+   973→                <Label>Référence</Label>
+   974→                <Input
+   975→                  placeholder="N° de chèque, virement..."
+   976→                  value={payReference}
+   977→                  onChange={(e) => setPayReference(e.target.value)}
+   978→                />
+   979→              </div>
+   980→
+   981→              {/* Notes */}
+   982→              <div className="space-y-2">
+   983→                <Label>Notes</Label>
+   984→                <Textarea
+   985→                  placeholder="Notes sur le paiement (optionnel)..."
+   986→                  value={payNotes}
+   987→                  onChange={(e) => setPayNotes(e.target.value)}
+   988→                  rows={2}
+   989→                />
+   990→              </div>
+   991→            </div>
+   992→          )}
+   993→
+   994→          <DialogFooter className="gap-2">
+   995→            <Button variant="outline" onClick={() => { setPaymentOpen(false); resetPaymentForm() }}>
+   996→              Annuler
+   997→            </Button>
+   998→            <Button onClick={handlePayment} className="min-w-32 bg-green-600 hover:bg-green-700">
+   999→              <CreditCard className="h-4 w-4 mr-2" />
+  1000→              Enregistrer
+  1001→            </Button>
+  1002→          </DialogFooter>
+  1003→        </DialogContent>
+  1004→      </Dialog>
+  1005→
+  1006→      {/* ── Edit Invoice Dialog ── */}
+  1007→      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+  1008→        <DialogContent className="max-w-md">
+  1009→          <DialogHeader>
+  1010→            <DialogTitle className="flex items-center gap-2">
+  1011→              <Edit className="h-5 w-5" />
+  1012→              Modifier la facture
+  1013→            </DialogTitle>
+  1014→          </DialogHeader>
+  1015→          {selectedInvoice && (
+  1016→            <div className="space-y-4">
+  1017→              <div className="text-sm font-medium font-mono">{selectedInvoice.number}</div>
+  1018→              <div className="space-y-2">
+  1019→                <Label className="flex items-center gap-1.5">
+  1020→                  <CalendarDays className="h-3.5 w-3.5" />
+  1021→                  Date d'échéance
+  1022→                </Label>
+  1023→                <Input
+  1024→                  type="date"
+  1025→                  value={editDueDate}
+  1026→                  onChange={(e) => setEditDueDate(e.target.value)}
+  1027→                />
+  1028→              </div>
+  1029→              <div className="space-y-2">
+  1030→                <Label>Notes</Label>
+  1031→                <Textarea
+  1032→                  placeholder="Notes sur la facture..."
+  1033→                  value={editNotes}
+  1034→                  onChange={(e) => setEditNotes(e.target.value)}
+  1035→                  rows={3}
+  1036→                />
+  1037→              </div>
+  1038→            </div>
+  1039→          )}
+  1040→          <DialogFooter className="gap-2">
+  1041→            <Button variant="outline" onClick={() => setEditOpen(false)}>Annuler</Button>
+  1042→            <Button onClick={handleEditInvoice} className="min-w-32">Enregistrer</Button>
+  1043→          </DialogFooter>
+  1044→        </DialogContent>
+  1045→      </Dialog>
+  1046→
+  1047→      {/* ── Delete Confirmation Dialog ── */}
+  1048→      <AlertDialog open={!!deleteInvoice} onOpenChange={(open) => { if (!open) setDeleteInvoice(null) }}>
+  1049→        <AlertDialogContent>
+  1050→          <AlertDialogHeader>
+  1051→            <AlertDialogTitle>Supprimer la facture ?</AlertDialogTitle>
+  1052→            <AlertDialogDescription>
+  1053→              Voulez-vous vraiment supprimer la facture <strong>{deleteInvoice?.number}</strong> ?
+  1054→              Cette action est irréversible.
+  1055→            </AlertDialogDescription>
+  1056→          </AlertDialogHeader>
+  1057→          <AlertDialogFooter>
+  1058→            <AlertDialogCancel>Annuler</AlertDialogCancel>
+  1059→            <AlertDialogAction
+  1060→              onClick={handleDeleteInvoice}
+  1061→              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+  1062→            >
+  1063→              Supprimer
+  1064→            </AlertDialogAction>
+  1065→          </AlertDialogFooter>
+  1066→        </AlertDialogContent>
+  1067→      </AlertDialog>
+  1068→
+  1069→      {/* ── Invoice Detail Dialog ── */}
+  1070→      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+  1071→        <DialogContent className="max-w-lg">
+  1072→          <DialogHeader>
+  1073→            <DialogTitle className="flex items-center gap-2">
+  1074→              <Eye className="h-5 w-5" />
+  1075→              Détails de la facture
+  1076→            </DialogTitle>
+  1077→          </DialogHeader>
+  1078→          {selectedInvoice && (
+  1079→            <div className="space-y-4">
+  1080→              <div className="flex items-center justify-between">
+  1081→                <span className="font-mono text-sm font-medium">{selectedInvoice.number}</span>
+  1082→                <Badge
+  1083→                  variant="secondary"
+  1084→                  className={INVOICE_STATUS_MAP[selectedInvoice.status]?.className}
+  1085→                >
+  1086→                  {INVOICE_STATUS_MAP[selectedInvoice.status]?.label}
+  1087→                </Badge>
+  1088→              </div>
+  1089→              <div className="grid grid-cols-2 gap-4 text-sm">
+  1090→                <div>
+  1091→                  <p className="text-muted-foreground">Client</p>
+  1092→                  <p className="font-medium">{selectedInvoice.client?.companyName}</p>
+  1093→                  <p className="text-xs text-muted-foreground">{selectedInvoice.client?.contactName}</p>
+  1094→                </div>
+  1095→                <div>
+  1096→                  <p className="text-muted-foreground">Commercial</p>
+  1097→                  <p className="font-medium">{selectedInvoice.commercial?.name || '—'}</p>
+  1098→                </div>
+  1099→                <div>
+  1100→                  <p className="text-muted-foreground">Date</p>
+  1101→                  <p className="font-medium">{formatDate(selectedInvoice.createdAt)}</p>
+  1102→                </div>
+  1103→                <div>
+  1104→                  <p className="text-muted-foreground">Échéance</p>
+  1105→                  <p className="font-medium">
+  1106→                    {selectedInvoice.dueDate ? formatDate(selectedInvoice.dueDate) : '—'}
+  1107→                  </p>
+  1108→                </div>
+  1109→              </div>
+  1110→
+  1111→              {/* Payment progress */}
+  1112→              <div>
+  1113→                <div className="flex justify-between text-sm mb-2">
+  1114→                  <span className="text-muted-foreground">Paiement</span>
+  1115→                  <span className="font-medium">
+  1116→                    {formatCFA(selectedInvoice.paid)} / {formatCFA(selectedInvoice.total)}
+  1117→                  </span>
+  1118→                </div>
+  1119→                <Progress
+  1120→                  value={
+  1121→                    selectedInvoice.total > 0
+  1122→                      ? Math.round((selectedInvoice.paid / selectedInvoice.total) * 100)
+  1123→                      : 0
+  1124→                  }
+  1125→                  className="h-2"
+  1126→                />
+  1127→              </div>
+  1128→
+  1129→              {/* Payments history */}
+  1130→              {selectedInvoice.payments && selectedInvoice.payments.length > 0 && (
+  1131→                <div>
+  1132→                  <p className="text-sm font-medium mb-2">Historique des paiements</p>
+  1133→                  <div className="space-y-2">
+  1134→                    {selectedInvoice.payments.map((payment) => (
+  1135→                      <div
+  1136→                        key={payment.id}
+  1137→                        className="flex items-center justify-between bg-muted/40 rounded-lg px-3 py-2 text-sm"
+  1138→                      >
+  1139→                        <div className="flex items-center gap-2">
+  1140→                          <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+  1141→                          <span className="font-medium">{formatCFA(payment.amount)}</span>
+  1142→                          <Badge variant="outline" className="text-[10px]">
+  1143→                            {payment.method === 'cash'
+  1144→                              ? 'Espèces'
+  1145→                              : payment.method === 'bank_transfer'
+  1146→                                ? 'Virement'
+  1147→                                : payment.method === 'check'
+  1148→                                  ? 'Chèque'
+  1149→                                  : 'Mobile'}
+  1150→                          </Badge>
+  1151→                        </div>
+  1152→                        <span className="text-xs text-muted-foreground">
+  1153→                          {payment.createdAt ? formatDate(payment.createdAt) : ''}
+  1154→                        </span>
+  1155→                      </div>
+  1156→                    ))}
+  1157→                  </div>
+  1158→                </div>
+  1159→              )}
+  1160→
+  1161→              {selectedInvoice.notes && (
+  1162→                <div className="text-sm">
+  1163→                  <p className="text-muted-foreground">Notes</p>
+  1164→                  <p>{selectedInvoice.notes}</p>
+  1165→                </div>
+  1166→              )}
+  1167→            </div>
+  1168→          )}
+  1169→        </DialogContent>
+  1170→      </Dialog>
+  1171→    </div>
+  1172→  )
+  1173→}
+  1174→

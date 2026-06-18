@@ -1,0 +1,888 @@
+     1→'use client'
+     2→
+     3→import React, { useState, useEffect, useCallback } from 'react'
+     4→import {
+     5→  ArrowLeft,
+     6→  Phone,
+     7→  Mail,
+     8→  MapPin,
+     9→  MessageSquare,
+    10→  PhoneCall,
+    11→  FileText,
+    12→  ShoppingCart,
+    13→  Receipt,
+    14→  Calendar,
+    15→  Clock,
+    16→  Save,
+    17→  Loader2,
+    18→  Building2,
+    19→  User,
+    20→  Globe,
+    21→  Package,
+    22→  Users,
+    23→  CreditCard,
+    24→  MessageCircle,
+    25→  StickyNote,
+    26→} from 'lucide-react'
+    27→import { Button } from '@/components/ui/button'
+    28→import { Badge } from '@/components/ui/badge'
+    29→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+    30→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    31→import {
+    32→  Table,
+    33→  TableBody,
+    34→  TableCell,
+    35→  TableHead,
+    36→  TableHeader,
+    37→  TableRow,
+    38→} from '@/components/ui/table'
+    39→import { Textarea } from '@/components/ui/textarea'
+    40→import { Separator } from '@/components/ui/separator'
+    41→import { useAppStore } from '@/lib/store'
+    42→import type { Client, Order, Quote, Invoice, Visit, Discussion, Payment } from '@/lib/types'
+    43→
+    44→function formatCFA(amount: number): string {
+    45→  return new Intl.NumberFormat('fr-FR').format(Math.round(amount)) + ' CFA'
+    46→}
+    47→
+    48→function formatDate(dateStr: string): string {
+    49→  return new Date(dateStr).toLocaleDateString('fr-FR', {
+    50→    day: '2-digit',
+    51→    month: '2-digit',
+    52→    year: 'numeric',
+    53→    hour: '2-digit',
+    54→    minute: '2-digit',
+    55→  })
+    56→}
+    57→
+    58→function formatDateShort(dateStr: string): string {
+    59→  return new Date(dateStr).toLocaleDateString('fr-FR', {
+    60→    day: '2-digit',
+    61→    month: 'short',
+    62→    year: 'numeric',
+    63→  })
+    64→}
+    65→
+    66→const typeLabels: Record<string, string> = {
+    67→  boutique: 'Boutique',
+    68→  revendeur: 'Revendeur',
+    69→  supermarche: 'Supermarché',
+    70→  grossiste: 'Grossiste',
+    71→}
+    72→
+    73→const typeColors: Record<string, string> = {
+    74→  boutique: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
+    75→  revendeur: 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-400',
+    76→  supermarche: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+    77→  grossiste: 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-400',
+    78→}
+    79→
+    80→const statusLabels: Record<string, string> = {
+    81→  lead_rouge: 'Lead Rouge',
+    82→  negociation_orange: 'Négociation Orange',
+    83→  client_vert: 'Client Vert',
+    84→  new: 'Nouvelle',
+    85→  validated: 'Validée',
+    86→  preparation: 'En préparation',
+    87→  shipped: 'Expédiée',
+    88→  delivered: 'Livrée',
+    89→  draft: 'Brouillon',
+    90→  sent: 'Envoyé',
+    91→  accepted: 'Accepté',
+    92→  refused: 'Refusé',
+    93→  paid: 'Payée',
+    94→  partially_paid: 'Partiellement payée',
+    95→  unpaid: 'Non payée',
+    96→  overdue: 'En retard',
+    97→  planned: 'Planifiée',
+    98→  completed: 'Terminée',
+    99→  cancelled: 'Annulée',
+   100→  message: 'Message',
+   101→  call: 'Appel',
+   102→  note: 'Note',
+   103→  whatsapp: 'WhatsApp',
+   104→  incoming: 'Entrant',
+   105→  outgoing: 'Sortant',
+   106→  pending: 'En attente',
+   107→  failed: 'Échoué',
+   108→}
+   109→
+   110→const orderStatusColors: Record<string, string> = {
+   111→  new: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+   112→  validated: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400',
+   113→  preparation: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+   114→  shipped: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+   115→  delivered: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+   116→}
+   117→
+   118→const quoteStatusColors: Record<string, string> = {
+   119→  draft: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400',
+   120→  sent: 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-400',
+   121→  accepted: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+   122→  refused: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+   123→}
+   124→
+   125→const invoiceStatusColors: Record<string, string> = {
+   126→  paid: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+   127→  partially_paid: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+   128→  unpaid: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+   129→  overdue: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
+   130→}
+   131→
+   132→const discussionTypeIcon: Record<string, React.ReactNode> = {
+   133→  message: <MessageSquare className="h-3.5 w-3.5" />,
+   134→  call: <PhoneCall className="h-3.5 w-3.5" />,
+   135→  note: <StickyNote className="h-3.5 w-3.5" />,
+   136→  whatsapp: <MessageCircle className="h-3.5 w-3.5" />,
+   137→}
+   138→
+   139→interface ClientStats {
+   140→  totalRevenue: number
+   141→  totalPaid: number
+   142→  totalOrdersRevenue: number
+   143→  totalQuotesValue: number
+   144→  totalPayments: number
+   145→  ordersCount: number
+   146→  quotesCount: number
+   147→  invoicesCount: number
+   148→  visitsCount: number
+   149→  discussionsCount: number
+   150→  paymentsCount: number
+   151→}
+   152→
+   153→interface ClientDetailData extends Omit<Client, 'commercial'> {
+   154→  commercial: {
+   155→    id: string
+   156→    name: string
+   157→    email: string
+   158→    phone?: string
+   159→    role: string
+   160→  } | null
+   161→  orders: Order[]
+   162→  quotes: Quote[]
+   163→  invoices: Invoice[]
+   164→  visits: Visit[]
+   165→  discussions: Discussion[]
+   166→  payments: Payment[]
+   167→  stats: ClientStats
+   168→}
+   169→
+   170→export default function ClientDetail() {
+   171→  const selectedClientId = useAppStore((s) => s.selectedClientId)
+   172→  const setCurrentPage = useAppStore((s) => s.setCurrentPage)
+   173→
+   174→  const [client, setClient] = useState<ClientDetailData | null>(null)
+   175→  const [loading, setLoading] = useState(true)
+   176→  const [notes, setNotes] = useState('')
+   177→  const [savingNotes, setSavingNotes] = useState(false)
+   178→
+   179→  const fetchClient = useCallback(async () => {
+   180→    if (!selectedClientId) return
+   181→    setLoading(true)
+   182→    try {
+   183→      const res = await fetch(`/api/clients/${selectedClientId}`)
+   184→      if (res.ok) {
+   185→        const data = await res.json()
+   186→        setClient(data.client)
+   187→        setNotes(data.client.notes || '')
+   188→      }
+   189→    } catch {
+   190→      // Error handled silently
+   191→    } finally {
+   192→      setLoading(false)
+   193→    }
+   194→  }, [selectedClientId])
+   195→
+   196→  useEffect(() => {
+   197→    fetchClient()
+   198→  }, [fetchClient])
+   199→
+   200→  const handleSaveNotes = async () => {
+   201→    if (!selectedClientId) return
+   202→    setSavingNotes(true)
+   203→    try {
+   204→      await fetch(`/api/clients/${selectedClientId}`, {
+   205→        method: 'PUT',
+   206→        headers: { 'Content-Type': 'application/json' },
+   207→        body: JSON.stringify({ notes }),
+   208→      })
+   209→    } catch {
+   210→      // Error handled silently
+   211→    } finally {
+   212→      setSavingNotes(false)
+   213→    }
+   214→  }
+   215→
+   216→  if (loading) {
+   217→    return (
+   218→      <div className="flex items-center justify-center py-20">
+   219→        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+   220→        <span className="ml-2 text-sm text-muted-foreground">Chargement du client...</span>
+   221→      </div>
+   222→    )
+   223→  }
+   224→
+   225→  if (!client) {
+   226→    return (
+   227→      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+   228→        <Users className="h-10 w-10 mb-3 opacity-30" />
+   229→        <p className="text-sm">Client non trouvé.</p>
+   230→        <Button variant="outline" className="mt-4" onClick={() => setCurrentPage('clients')}>
+   231→          <ArrowLeft className="h-4 w-4 mr-2" />
+   232→          Retour à la liste
+   233→        </Button>
+   234→      </div>
+   235→    )
+   236→  }
+   237→
+   238→  return (
+   239→    <div className="space-y-6 p-4 lg:p-6">
+   240→      {/* Header */}
+   241→      <div className="flex items-center gap-3">
+   242→        <Button
+   243→          variant="outline"
+   244→          size="sm"
+   245→          onClick={() => setCurrentPage('clients')}
+   246→          className="gap-1.5"
+   247→        >
+   248→          <ArrowLeft className="h-4 w-4" />
+   249→          Retour
+   250→        </Button>
+   251→        <div className="flex-1">
+   252→          <h2 className="text-lg font-semibold">{client.companyName}</h2>
+   253→          <p className="text-sm text-muted-foreground">{client.contactName}</p>
+   254→        </div>
+   255→        <Badge
+   256→          variant="secondary"
+   257→          className={statusLabels[client.status] ? (client.status === 'client_vert' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : client.status === 'lead_rouge' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400') : ''}
+   258→        >
+   259→          {statusLabels[client.status] || client.status}
+   260→        </Badge>
+   261→      </div>
+   262→
+   263→      {/* Stats Cards */}
+   264→      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+   265→        <Card className="border-border/50">
+   266→          <CardContent className="p-3">
+   267→            <div className="flex items-center gap-2">
+   268→              <div className="p-1.5 rounded-md bg-erp-orange/10">
+   269→                <ShoppingCart className="h-4 w-4 text-erp-orange" />
+   270→              </div>
+   271→              <div>
+   272→                <p className="text-lg font-bold">{client.stats.ordersCount}</p>
+   273→                <p className="text-[10px] text-muted-foreground">Commandes</p>
+   274→              </div>
+   275→            </div>
+   276→          </CardContent>
+   277→        </Card>
+   278→        <Card className="border-border/50">
+   279→          <CardContent className="p-3">
+   280→            <div className="flex items-center gap-2">
+   281→              <div className="p-1.5 rounded-md bg-sky-100 dark:bg-sky-900/20">
+   282→                <FileText className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+   283→              </div>
+   284→              <div>
+   285→                <p className="text-lg font-bold">{client.stats.quotesCount}</p>
+   286→                <p className="text-[10px] text-muted-foreground">Devis</p>
+   287→              </div>
+   288→            </div>
+   289→          </CardContent>
+   290→        </Card>
+   291→        <Card className="border-border/50">
+   292→          <CardContent className="p-3">
+   293→            <div className="flex items-center gap-2">
+   294→              <div className="p-1.5 rounded-md bg-violet-100 dark:bg-violet-900/20">
+   295→                <Receipt className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+   296→              </div>
+   297→              <div>
+   298→                <p className="text-lg font-bold">{client.stats.invoicesCount}</p>
+   299→                <p className="text-[10px] text-muted-foreground">Factures</p>
+   300→              </div>
+   301→            </div>
+   302→          </CardContent>
+   303→        </Card>
+   304→        <Card className="border-border/50">
+   305→          <CardContent className="p-3">
+   306→            <div className="flex items-center gap-2">
+   307→              <div className="p-1.5 rounded-md bg-green-100 dark:bg-green-900/20">
+   308→                <CreditCard className="h-4 w-4 text-green-600 dark:text-green-400" />
+   309→              </div>
+   310→              <div>
+   311→                <p className="text-lg font-bold">{formatCFA(client.stats.totalRevenue)}</p>
+   312→                <p className="text-[10px] text-muted-foreground">CA Total</p>
+   313→              </div>
+   314→            </div>
+   315→          </CardContent>
+   316→        </Card>
+   317→        <Card className="border-border/50">
+   318→          <CardContent className="p-3">
+   319→            <div className="flex items-center gap-2">
+   320→              <div className="p-1.5 rounded-md bg-amber-100 dark:bg-amber-900/20">
+   321→                <Calendar className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+   322→              </div>
+   323→              <div>
+   324→                <p className="text-lg font-bold">{client.stats.visitsCount}</p>
+   325→                <p className="text-[10px] text-muted-foreground">Visites</p>
+   326→              </div>
+   327→            </div>
+   328→          </CardContent>
+   329→        </Card>
+   330→        <Card className="border-border/50">
+   331→          <CardContent className="p-3">
+   332→            <div className="flex items-center gap-2">
+   333→              <div className="p-1.5 rounded-md bg-rose-100 dark:bg-rose-900/20">
+   334→                <MessageSquare className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+   335→              </div>
+   336→              <div>
+   337→                <p className="text-lg font-bold">{client.stats.discussionsCount}</p>
+   338→                <p className="text-[10px] text-muted-foreground">Discussions</p>
+   339→              </div>
+   340→            </div>
+   341→          </CardContent>
+   342→        </Card>
+   343→      </div>
+   344→
+   345→      {/* Tabs */}
+   346→      <Tabs defaultValue="overview" className="space-y-4">
+   347→        <TabsList className="bg-muted/50">
+   348→          <TabsTrigger value="overview" className="gap-1.5 text-xs sm:text-sm">
+   349→            <Building2 className="h-3.5 w-3.5 hidden sm:block" />
+   350→            Vue d&apos;ensemble
+   351→          </TabsTrigger>
+   352→          <TabsTrigger value="orders" className="gap-1.5 text-xs sm:text-sm">
+   353→            <ShoppingCart className="h-3.5 w-3.5 hidden sm:block" />
+   354→            Commandes
+   355→          </TabsTrigger>
+   356→          <TabsTrigger value="quotes" className="gap-1.5 text-xs sm:text-sm">
+   357→            <FileText className="h-3.5 w-3.5 hidden sm:block" />
+   358→            Devis
+   359→          </TabsTrigger>
+   360→          <TabsTrigger value="invoices" className="gap-1.5 text-xs sm:text-sm">
+   361→            <Receipt className="h-3.5 w-3.5 hidden sm:block" />
+   362→            Factures
+   363→          </TabsTrigger>
+   364→          <TabsTrigger value="visits" className="gap-1.5 text-xs sm:text-sm">
+   365→            <Calendar className="h-3.5 w-3.5 hidden sm:block" />
+   366→            Visites
+   367→          </TabsTrigger>
+   368→          <TabsTrigger value="discussions" className="gap-1.5 text-xs sm:text-sm">
+   369→            <MessageSquare className="h-3.5 w-3.5 hidden sm:block" />
+   370→            Discussions
+   371→          </TabsTrigger>
+   372→          <TabsTrigger value="notes" className="gap-1.5 text-xs sm:text-sm">
+   373→            <StickyNote className="h-3.5 w-3.5 hidden sm:block" />
+   374→            Notes
+   375→          </TabsTrigger>
+   376→        </TabsList>
+   377→
+   378→        {/* Overview Tab */}
+   379→        <TabsContent value="overview" className="space-y-4">
+   380→          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+   381→            {/* Client Info */}
+   382→            <Card className="border-border/50 lg:col-span-2">
+   383→              <CardHeader className="pb-3">
+   384→                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   385→                  <Building2 className="h-4 w-4 text-erp-orange" />
+   386→                  Informations du Client
+   387→                </CardTitle>
+   388→              </CardHeader>
+   389→              <CardContent>
+   390→                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   391→                  <InfoRow icon={<Building2 className="h-4 w-4" />} label="Société" value={client.companyName} />
+   392→                  <InfoRow icon={<User className="h-4 w-4" />} label="Responsable" value={client.contactName} />
+   393→                  <InfoRow icon={<Phone className="h-4 w-4" />} label="Téléphone" value={client.phone} />
+   394→                  <InfoRow icon={<MessageCircle className="h-4 w-4" />} label="WhatsApp" value={client.whatsapp || '-'} />
+   395→                  <InfoRow icon={<Mail className="h-4 w-4" />} label="Email" value={client.email || '-'} />
+   396→                  <InfoRow icon={<MapPin className="h-4 w-4" />} label="Adresse" value={client.address || '-'} />
+   397→                  <InfoRow icon={<Globe className="h-4 w-4" />} label="Ville" value={client.city || '-'} />
+   398→                  <InfoRow icon={<Globe className="h-4 w-4" />} label="Région" value={client.region || '-'} />
+   399→                  <InfoRow icon={<Package className="h-4 w-4" />} label="Secteur" value={client.sector || '-'} />
+   400→                  <InfoRow icon={<Building2 className="h-4 w-4" />} label="Type" value={typeLabels[client.type] || client.type} />
+   401→                  <InfoRow icon={<Calendar className="h-4 w-4" />} label="Créé le" value={formatDateShort(client.createdAt)} />
+   402→                </div>
+   403→                {client.type && (
+   404→                  <div className="mt-4">
+   405→                    <Badge
+   406→                      variant="secondary"
+   407→                      className={typeColors[client.type] || ''}
+   408→                    >
+   409→                      {typeLabels[client.type] || client.type}
+   410→                    </Badge>
+   411→                  </div>
+   412→                )}
+   413→              </CardContent>
+   414→            </Card>
+   415→
+   416→            {/* Commercial & Revenue */}
+   417→            <div className="space-y-4">
+   418→              <Card className="border-border/50">
+   419→                <CardHeader className="pb-3">
+   420→                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   421→                    <Users className="h-4 w-4 text-erp-orange" />
+   422→                    Commercial Assigné
+   423→                  </CardTitle>
+   424→                </CardHeader>
+   425→                <CardContent>
+   426→                  {client.commercial ? (
+   427→                    <div className="flex items-center gap-3">
+   428→                      <div className="h-10 w-10 rounded-full bg-erp-orange/10 flex items-center justify-center">
+   429→                        <span className="text-sm font-bold text-erp-orange">
+   430→                          {client.commercial.name
+   431→                            .split(' ')
+   432→                            .map((n) => n[0])
+   433→                            .join('')
+   434→                            .toUpperCase()
+   435→                            .slice(0, 2)}
+   436→                        </span>
+   437→                      </div>
+   438→                      <div>
+   439→                        <p className="text-sm font-medium">{client.commercial.name}</p>
+   440→                        <p className="text-xs text-muted-foreground capitalize">
+   441→                          {client.commercial.role?.replace('_', ' ')}
+   442→                        </p>
+   443→                        {client.commercial.phone && (
+   444→                          <p className="text-xs text-muted-foreground">{client.commercial.phone}</p>
+   445→                        )}
+   446→                      </div>
+   447→                    </div>
+   448→                  ) : (
+   449→                    <p className="text-sm text-muted-foreground">Aucun commercial assigné</p>
+   450→                  )}
+   451→                </CardContent>
+   452→              </Card>
+   453→
+   454→              <Card className="border-border/50">
+   455→                <CardHeader className="pb-3">
+   456→                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   457→                    <CreditCard className="h-4 w-4 text-erp-orange" />
+   458→                    Chiffre d&apos;Affaires
+   459→                  </CardTitle>
+   460→                </CardHeader>
+   461→                <CardContent className="space-y-3">
+   462→                  <div className="flex justify-between text-sm">
+   463→                    <span className="text-muted-foreground">CA Total</span>
+   464→                    <span className="font-semibold">{formatCFA(client.stats.totalRevenue)}</span>
+   465→                  </div>
+   466→                  <Separator />
+   467→                  <div className="flex justify-between text-sm">
+   468→                    <span className="text-muted-foreground">CA Commandes</span>
+   469→                    <span className="font-medium">{formatCFA(client.stats.totalOrdersRevenue)}</span>
+   470→                  </div>
+   471→                  <Separator />
+   472→                  <div className="flex justify-between text-sm">
+   473→                    <span className="text-muted-foreground">Valeur Devis</span>
+   474→                    <span className="font-medium">{formatCFA(client.stats.totalQuotesValue)}</span>
+   475→                  </div>
+   476→                  <Separator />
+   477→                  <div className="flex justify-between text-sm">
+   478→                    <span className="text-muted-foreground">Total Payé</span>
+   479→                    <span className="font-medium text-green-600">{formatCFA(client.stats.totalPaid)}</span>
+   480→                  </div>
+   481→                  <Separator />
+   482→                  <div className="flex justify-between text-sm">
+   483→                    <span className="text-muted-foreground">Solde Restant</span>
+   484→                    <span className="font-medium text-destructive">
+   485→                      {formatCFA(client.stats.totalRevenue - client.stats.totalPaid)}
+   486→                    </span>
+   487→                  </div>
+   488→                </CardContent>
+   489→              </Card>
+   490→            </div>
+   491→          </div>
+   492→        </TabsContent>
+   493→
+   494→        {/* Orders Tab */}
+   495→        <TabsContent value="orders">
+   496→          <Card className="border-border/50">
+   497→            <CardHeader className="pb-3">
+   498→              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   499→                <ShoppingCart className="h-4 w-4 text-erp-orange" />
+   500→                Commandes
+   501→                <Badge variant="secondary" className="ml-auto text-xs">
+   502→                  {client.orders.length}
+   503→                </Badge>
+   504→              </CardTitle>
+   505→            </CardHeader>
+   506→            <CardContent className="p-0">
+   507→              {client.orders.length === 0 ? (
+   508→                <EmptyState message="Aucune commande pour ce client." />
+   509→              ) : (
+   510→                <div className="overflow-x-auto">
+   511→                  <Table>
+   512→                    <TableHeader>
+   513→                      <TableRow className="hover:bg-transparent">
+   514→                        <TableHead>N° Commande</TableHead>
+   515→                        <TableHead>Statut</TableHead>
+   516→                        <TableHead>Commercial</TableHead>
+   517→                        <TableHead className="text-right">Total</TableHead>
+   518→                        <TableHead className="text-right">Remise</TableHead>
+   519→                        <TableHead>Date</TableHead>
+   520→                      </TableRow>
+   521→                    </TableHeader>
+   522→                    <TableBody>
+   523→                      {client.orders.map((order) => (
+   524→                        <TableRow key={order.id}>
+   525→                          <TableCell className="font-medium text-sm">{order.number}</TableCell>
+   526→                          <TableCell>
+   527→                            <Badge variant="secondary" className={`text-[11px] ${orderStatusColors[order.status] || ''}`}>
+   528→                              {statusLabels[order.status] || order.status}
+   529→                            </Badge>
+   530→                          </TableCell>
+   531→                          <TableCell className="text-sm text-muted-foreground">
+   532→                            {order.commercial?.name || '-'}
+   533→                          </TableCell>
+   534→                          <TableCell className="text-right font-medium text-sm">
+   535→                            {formatCFA(order.total)}
+   536→                          </TableCell>
+   537→                          <TableCell className="text-right text-sm text-muted-foreground">
+   538→                            {order.discount > 0 ? `${order.discount}%` : '-'}
+   539→                          </TableCell>
+   540→                          <TableCell className="text-sm text-muted-foreground">
+   541→                            {formatDateShort(order.createdAt)}
+   542→                          </TableCell>
+   543→                        </TableRow>
+   544→                      ))}
+   545→                    </TableBody>
+   546→                  </Table>
+   547→                </div>
+   548→              )}
+   549→            </CardContent>
+   550→          </Card>
+   551→        </TabsContent>
+   552→
+   553→        {/* Quotes Tab */}
+   554→        <TabsContent value="quotes">
+   555→          <Card className="border-border/50">
+   556→            <CardHeader className="pb-3">
+   557→              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   558→                <FileText className="h-4 w-4 text-erp-orange" />
+   559→                Devis
+   560→                <Badge variant="secondary" className="ml-auto text-xs">
+   561→                  {client.quotes.length}
+   562→                </Badge>
+   563→              </CardTitle>
+   564→            </CardHeader>
+   565→            <CardContent className="p-0">
+   566→              {client.quotes.length === 0 ? (
+   567→                <EmptyState message="Aucun devis pour ce client." />
+   568→              ) : (
+   569→                <div className="overflow-x-auto">
+   570→                  <Table>
+   571→                    <TableHeader>
+   572→                      <TableRow className="hover:bg-transparent">
+   573→                        <TableHead>N° Devis</TableHead>
+   574→                        <TableHead>Statut</TableHead>
+   575→                        <TableHead>Commercial</TableHead>
+   576→                        <TableHead className="text-right">Total</TableHead>
+   577→                        <TableHead>Valide jusqu&apos;au</TableHead>
+   578→                        <TableHead>Date</TableHead>
+   579→                      </TableRow>
+   580→                    </TableHeader>
+   581→                    <TableBody>
+   582→                      {client.quotes.map((quote) => (
+   583→                        <TableRow key={quote.id}>
+   584→                          <TableCell className="font-medium text-sm">{quote.number}</TableCell>
+   585→                          <TableCell>
+   586→                            <Badge variant="secondary" className={`text-[11px] ${quoteStatusColors[quote.status] || ''}`}>
+   587→                              {statusLabels[quote.status] || quote.status}
+   588→                            </Badge>
+   589→                          </TableCell>
+   590→                          <TableCell className="text-sm text-muted-foreground">
+   591→                            {quote.commercial?.name || '-'}
+   592→                          </TableCell>
+   593→                          <TableCell className="text-right font-medium text-sm">
+   594→                            {formatCFA(quote.total)}
+   595→                          </TableCell>
+   596→                          <TableCell className="text-sm text-muted-foreground">
+   597→                            {quote.validUntil ? formatDateShort(quote.validUntil) : '-'}
+   598→                          </TableCell>
+   599→                          <TableCell className="text-sm text-muted-foreground">
+   600→                            {formatDateShort(quote.createdAt)}
+   601→                          </TableCell>
+   602→                        </TableRow>
+   603→                      ))}
+   604→                    </TableBody>
+   605→                  </Table>
+   606→                </div>
+   607→              )}
+   608→            </CardContent>
+   609→          </Card>
+   610→        </TabsContent>
+   611→
+   612→        {/* Invoices Tab */}
+   613→        <TabsContent value="invoices">
+   614→          <Card className="border-border/50">
+   615→            <CardHeader className="pb-3">
+   616→              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   617→                <Receipt className="h-4 w-4 text-erp-orange" />
+   618→                Factures
+   619→                <Badge variant="secondary" className="ml-auto text-xs">
+   620→                  {client.invoices.length}
+   621→                </Badge>
+   622→              </CardTitle>
+   623→            </CardHeader>
+   624→            <CardContent className="p-0">
+   625→              {client.invoices.length === 0 ? (
+   626→                <EmptyState message="Aucune facture pour ce client." />
+   627→              ) : (
+   628→                <div className="overflow-x-auto">
+   629→                  <Table>
+   630→                    <TableHeader>
+   631→                      <TableRow className="hover:bg-transparent">
+   632→                        <TableHead>N° Facture</TableHead>
+   633→                        <TableHead>Statut</TableHead>
+   634→                        <TableHead>Commercial</TableHead>
+   635→                        <TableHead className="text-right">Total</TableHead>
+   636→                        <TableHead className="text-right">Payé</TableHead>
+   637→                        <TableHead>Échéance</TableHead>
+   638→                        <TableHead>Date</TableHead>
+   639→                      </TableRow>
+   640→                    </TableHeader>
+   641→                    <TableBody>
+   642→                      {client.invoices.map((invoice) => (
+   643→                        <TableRow key={invoice.id}>
+   644→                          <TableCell className="font-medium text-sm">{invoice.number}</TableCell>
+   645→                          <TableCell>
+   646→                            <Badge variant="secondary" className={`text-[11px] ${invoiceStatusColors[invoice.status] || ''}`}>
+   647→                              {statusLabels[invoice.status] || invoice.status}
+   648→                            </Badge>
+   649→                          </TableCell>
+   650→                          <TableCell className="text-sm text-muted-foreground">
+   651→                            {invoice.commercial?.name || '-'}
+   652→                          </TableCell>
+   653→                          <TableCell className="text-right font-medium text-sm">
+   654→                            {formatCFA(invoice.total)}
+   655→                          </TableCell>
+   656→                          <TableCell className="text-right text-sm text-green-600">
+   657→                            {formatCFA(invoice.paid)}
+   658→                          </TableCell>
+   659→                          <TableCell className="text-sm text-muted-foreground">
+   660→                            {invoice.dueDate ? formatDateShort(invoice.dueDate) : '-'}
+   661→                          </TableCell>
+   662→                          <TableCell className="text-sm text-muted-foreground">
+   663→                            {formatDateShort(invoice.createdAt)}
+   664→                          </TableCell>
+   665→                        </TableRow>
+   666→                      ))}
+   667→                    </TableBody>
+   668→                  </Table>
+   669→                </div>
+   670→              )}
+   671→            </CardContent>
+   672→          </Card>
+   673→        </TabsContent>
+   674→
+   675→        {/* Visits Tab */}
+   676→        <TabsContent value="visits">
+   677→          <Card className="border-border/50">
+   678→            <CardHeader className="pb-3">
+   679→              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   680→                <Calendar className="h-4 w-4 text-erp-orange" />
+   681→                Historique des Visites
+   682→                <Badge variant="secondary" className="ml-auto text-xs">
+   683→                  {client.visits.length}
+   684→                </Badge>
+   685→              </CardTitle>
+   686→            </CardHeader>
+   687→            <CardContent>
+   688→              {client.visits.length === 0 ? (
+   689→                <EmptyState message="Aucune visite enregistrée." />
+   690→              ) : (
+   691→                <div className="relative space-y-0">
+   692→                  {/* Timeline */}
+   693→                  <div className="space-y-4">
+   694→                    {client.visits.map((visit, index) => (
+   695→                      <div key={visit.id} className="flex gap-4">
+   696→                        {/* Timeline line */}
+   697→                        <div className="flex flex-col items-center">
+   698→                          <div
+   699→                            className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${
+   700→                              visit.type === 'visit'
+   701→                                ? 'bg-erp-orange/10 text-erp-orange'
+   702→                                : visit.type === 'call'
+   703→                                ? 'bg-sky-100 dark:bg-sky-900/20 text-sky-600'
+   704→                                : 'bg-amber-100 dark:bg-amber-900/20 text-amber-600'
+   705→                            }`}
+   706→                          >
+   707→                            {visit.type === 'visit' ? (
+   708→                              <MapPin className="h-4 w-4" />
+   709→                            ) : visit.type === 'call' ? (
+   710→                              <PhoneCall className="h-4 w-4" />
+   711→                            ) : (
+   712→                              <StickyNote className="h-4 w-4" />
+   713→                            )}
+   714→                          </div>
+   715→                          {index < client.visits.length - 1 && (
+   716→                            <div className="w-px h-full bg-border mt-1" />
+   717→                          )}
+   718→                        </div>
+   719→
+   720→                        {/* Content */}
+   721→                        <div className="flex-1 pb-6">
+   722→                          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-1">
+   723→                            <Badge
+   724→                              variant="secondary"
+   725→                              className={`text-[11px] w-fit ${
+   726→                                visit.status === 'completed'
+   727→                                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+   728→                                  : visit.status === 'planned'
+   729→                                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+   730→                                  : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+   731→                              }`}
+   732→                            >
+   733→                              {statusLabels[visit.status] || visit.status}
+   734→                            </Badge>
+   735→                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+   736→                              <Clock className="h-3 w-3" />
+   737→                              {formatDate(visit.createdAt)}
+   738→                            </span>
+   739→                          </div>
+   740→                          <p className="text-sm text-muted-foreground">
+   741→                            {visit.notes || 'Aucune note'}
+   742→                          </p>
+   743→                          {visit.commercial && (
+   744→                            <p className="text-xs text-muted-foreground mt-1">
+   745→                              Par {visit.commercial.name}
+   746→                            </p>
+   747→                          )}
+   748→                        </div>
+   749→                      </div>
+   750→                    ))}
+   751→                  </div>
+   752→                </div>
+   753→              )}
+   754→            </CardContent>
+   755→          </Card>
+   756→        </TabsContent>
+   757→
+   758→        {/* Discussions Tab */}
+   759→        <TabsContent value="discussions">
+   760→          <Card className="border-border/50">
+   761→            <CardHeader className="pb-3">
+   762→              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   763→                <MessageSquare className="h-4 w-4 text-erp-orange" />
+   764→                Discussions
+   765→                <Badge variant="secondary" className="ml-auto text-xs">
+   766→                  {client.discussions.length}
+   767→                </Badge>
+   768→              </CardTitle>
+   769→            </CardHeader>
+   770→            <CardContent>
+   771→              {client.discussions.length === 0 ? (
+   772→                <EmptyState message="Aucune discussion enregistrée." />
+   773→              ) : (
+   774→                <div className="space-y-3 max-h-[500px] overflow-y-auto">
+   775→                  {client.discussions.map((discussion) => {
+   776→                    const isIncoming = discussion.direction === 'incoming'
+   777→                    return (
+   778→                      <div
+   779→                        key={discussion.id}
+   780→                        className={`flex gap-3 ${isIncoming ? 'justify-start' : 'justify-end'}`}
+   781→                      >
+   782→                        <div
+   783→                          className={`max-w-[80%] rounded-xl px-4 py-2.5 ${
+   784→                            isIncoming
+   785→                              ? 'bg-muted rounded-tl-none'
+   786→                              : 'bg-erp-orange/10 rounded-tr-none'
+   787→                          }`}
+   788→                        >
+   789→                          <div className="flex items-center gap-2 mb-1">
+   790→                            <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+   791→                              {discussionTypeIcon[discussion.type]}
+   792→                              {statusLabels[discussion.type] || discussion.type}
+   793→                            </span>
+   794→                            <span className="text-[10px] text-muted-foreground">
+   795→                              {isIncoming ? '↑ Entrant' : '↓ Sortant'}
+   796→                            </span>
+   797→                          </div>
+   798→                          <p className="text-sm">{discussion.content}</p>
+   799→                          <div className="flex items-center gap-2 mt-1.5">
+   800→                            <span className="text-[10px] text-muted-foreground">
+   801→                              {formatDate(discussion.createdAt)}
+   802→                            </span>
+   803→                            {discussion.commercial && (
+   804→                              <span className="text-[10px] text-muted-foreground">
+   805→                                · {discussion.commercial.name}
+   806→                              </span>
+   807→                            )}
+   808→                          </div>
+   809→                        </div>
+   810→                      </div>
+   811→                    )
+   812→                  })}
+   813→                </div>
+   814→              )}
+   815→            </CardContent>
+   816→          </Card>
+   817→        </TabsContent>
+   818→
+   819→        {/* Notes Tab */}
+   820→        <TabsContent value="notes">
+   821→          <Card className="border-border/50">
+   822→            <CardHeader className="pb-3">
+   823→              <div className="flex items-center justify-between">
+   824→                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   825→                  <StickyNote className="h-4 w-4 text-erp-orange" />
+   826→                  Notes du Client
+   827→                </CardTitle>
+   828→                <Button
+   829→                  size="sm"
+   830→                  onClick={handleSaveNotes}
+   831→                  disabled={savingNotes}
+   832→                  className="gap-1.5 bg-erp-orange hover:bg-erp-orange/90 text-white"
+   833→                >
+   834→                  {savingNotes ? (
+   835→                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+   836→                  ) : (
+   837→                    <Save className="h-3.5 w-3.5" />
+   838→                  )}
+   839→                  Sauvegarder
+   840→                </Button>
+   841→              </div>
+   842→            </CardHeader>
+   843→            <CardContent>
+   844→              <Textarea
+   845→                value={notes}
+   846→                onChange={(e) => setNotes(e.target.value)}
+   847→                placeholder="Ajoutez vos notes sur ce client..."
+   848→                rows={12}
+   849→                className="resize-y"
+   850→              />
+   851→            </CardContent>
+   852→          </Card>
+   853→        </TabsContent>
+   854→      </Tabs>
+   855→    </div>
+   856→  )
+   857→}
+   858→
+   859→// Helper Components
+   860→function InfoRow({
+   861→  icon,
+   862→  label,
+   863→  value,
+   864→}: {
+   865→  icon: React.ReactNode
+   866→  label: string
+   867→  value: string
+   868→}) {
+   869→  return (
+   870→    <div className="flex items-start gap-3">
+   871→      <div className="mt-0.5 text-muted-foreground">{icon}</div>
+   872→      <div>
+   873→        <p className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</p>
+   874→        <p className="text-sm font-medium">{value}</p>
+   875→      </div>
+   876→    </div>
+   877→  )
+   878→}
+   879→
+   880→function EmptyState({ message }: { message: string }) {
+   881→  return (
+   882→    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+   883→      <Package className="h-8 w-8 mb-2 opacity-30" />
+   884→      <p className="text-sm">{message}</p>
+   885→    </div>
+   886→  )
+   887→}
+   888→

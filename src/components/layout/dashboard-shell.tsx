@@ -30,6 +30,8 @@ const SupportTicketsPage = dynamic(() => import('@/components/support/support-ti
 const ApiKeysPage = dynamic(() => import('@/components/api/api-keys-page').then(m => m.default))
 const SettingsPage = dynamic(() => import('@/components/settings/settings-page').then(m => m.default))
 const UsersPage = dynamic(() => import('@/components/settings/users-management').then(m => m.UsersManagementPage))
+const SuperAdminCompaniesPage = dynamic(() => import('@/components/super-admin/super-admin-companies-page').then(m => m.default))
+const SuperAdminSettingsPage = dynamic(() => import('@/components/super-admin/super-admin-settings-page').then(m => m.default))
 
 // Page mapping
 const pageComponents: Partial<Record<PageId, React.ComponentType>> = {
@@ -53,6 +55,8 @@ const pageComponents: Partial<Record<PageId, React.ComponentType>> = {
   'api-keys': ApiKeysPage,
   settings: SettingsPage,
   users: UsersPage,
+  'super-admin-companies': SuperAdminCompaniesPage,
+  'super-admin-settings': SuperAdminSettingsPage,
 }
 
 function PageRenderer() {
