@@ -54,6 +54,12 @@ model User {
   role      String   @default("commercial") // super_admin, admin, director, commercial, accountant
   active    Boolean  @default(true)
   companyId String
+
+  // Two-Factor Authentication (2FA)
+  twoFactorEnabled Boolean  @default(false)
+  twoFactorSecret  String?   // Encrypted TOTP secret
+  twoFactorBackupCodes String? // Encrypted JSON array of backup codes
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
