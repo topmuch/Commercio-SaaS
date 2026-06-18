@@ -206,6 +206,17 @@ export default function MobileQuoteDetailPage() {
               )}
             </div>
           </div>
+
+          {/* WhatsApp action button */}
+          {quote.client?.whatsapp && (
+            <button
+              onClick={handleSendWhatsApp}
+              className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 py-2.5 text-emerald-400 text-sm font-medium active:bg-emerald-500/20 transition-colors"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Contacter sur WhatsApp
+            </button>
+          )}
         </Card>
 
         {/* Quote info */}
@@ -316,6 +327,33 @@ export default function MobileQuoteDetailPage() {
             </button>
           )}
         </div>
+      </div>
+
+      {/* Bottom action bar */}
+      <div className="sticky bottom-0 bg-slate-900/95 backdrop-blur-sm border-t border-slate-700/50 px-4 py-3 flex gap-2 shrink-0">
+        {quote.status === 'accepted' && (
+          <button
+            onClick={handleConvertToOrder}
+            disabled={converting || !isOnline}
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500 text-white py-2.5 text-xs font-medium active:bg-emerald-600 transition-colors disabled:opacity-50"
+          >
+            {converting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            {converting ? '...' : 'Commande'}
+          </button>
+        )}
+        {quote.client?.whatsapp && (
+          <button
+            onClick={handleSendWhatsApp}
+            className={`${quote.status === 'accepted' ? 'flex-[2]' : 'flex-1'} flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 text-white py-2.5 text-xs font-medium active:bg-emerald-700 transition-colors`}
+          >
+            <MessageCircle className="h-4 w-4" />
+            WhatsApp
+          </button>
+        )}
       </div>
     </div>
   )

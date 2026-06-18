@@ -176,6 +176,23 @@ export default function MobileInvoiceDetailPage() {
     window.open(mailto, '_self')
   }
 
+  const handleWhatsApp = () => {
+    if (!invoice?.client?.whatsapp) {
+      alert('Ce client n\'a pas de numéro WhatsApp')
+      return
+    }
+    const itemsText = invoice.items
+      ?.map((item) => `• ${item.product?.name || 'Produit'} : ${item.quantity} x ${formatCurrency(item.unitPrice)} = ${formatCurrency(item.totalPrice)}`)
+      .join('\n') || ''
+    const paymentText = invoice.paid > 0
+      ? `\n\n💰 Payé: ${formatCurrency(invoice.paid)}${invoice.paid < invoice.total ? ` / Reste à payer: ${formatCurrency(invoice.total - invoice.paid)}` : ''}`
+      : ''
+    const message = encodeURIComponent(
+      `Bonjour ${invoice.client.contactName},\n\n📄 *Facture ${invoice.number}*\n\n${itemsText}\n\n━━━━━━━━━━━━━━━\n*Total: ${formatCurrency(invoice.total)}*${paymentText}\n\n${invoice.dueDate ? `📅 Échéance: ${formatDate(invoice.dueDate)}\n` : ''}Cordialement.`
+    )
+    window.open(`https://wa.me/${invoice.client!.whatsapp!.replace(/[^0-9]/g, '')}?text=${message}`, '_blank')
+  }
+
   const handlePrint = () => {
     window.print()
   }
@@ -371,25 +388,32 @@ export default function MobileInvoiceDetailPage() {
       </div>
 
       {/* Bottom action bar */}
-      <div className="sticky bottom-0 bg-slate-900/95 backdrop-blur-sm border-t border-slate-700/50 px-4 py-3 flex gap-3 shrink-0">
+      <div className="sticky bottom-0 bg-slate-900/95 backdrop-blur-sm border-t border-slate-700/50 px-4 py-3 flex gap-2 shrink-0">
         <button
           onClick={handleDownloadPDF}
           disabled={!isOnline}
-          className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-emerald-500 text-white py-2.5 text-sm font-medium active:bg-emerald-600 transition-colors disabled:opacity-40"
+          className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500 text-white py-2.5 text-xs font-medium active:bg-emerald-600 transition-colors disabled:opacity-40"
         >
           <Download className="h-4 w-4" />
           PDF
         </button>
         <button
           onClick={handleEmail}
-          className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-sky-500 text-white py-2.5 text-sm font-medium active:bg-sky-600 transition-colors"
+          className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-sky-500 text-white py-2.5 text-xs font-medium active:bg-sky-600 transition-colors"
         >
           <Mail className="h-4 w-4" />
           Email
         </button>
         <button
+          onClick={handleWhatsApp}
+          className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 text-white py-2.5 text-xs font-medium active:bg-emerald-700 transition-colors"
+        >
+          <MessageCircle className="h-4 w-4" />
+          WhatsApp
+        </button>
+        <button
           onClick={handlePrint}
-          className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-slate-700 text-slate-200 py-2.5 text-sm font-medium active:bg-slate-600 transition-colors"
+          className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-slate-700 text-slate-200 py-2.5 text-xs font-medium active:bg-slate-600 transition-colors"
         >
           <Printer className="h-4 w-4" />
           Imprimer
