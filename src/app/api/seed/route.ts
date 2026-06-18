@@ -1,7 +1,6 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
-import { getCompanyId, getAuthSession } from '@/lib/auth'
-import bcrypt from 'bcryptjs'
+import { getCompanyId, getAuthSession, hashPassword } from '@/lib/auth'
 
 export async function POST(request: Request) {
   try {
@@ -72,31 +71,31 @@ export async function POST(request: Request) {
     const users = await Promise.all([
       db.user.create({
         data: {
-          id: 'usr_1', email: 'mamadou@distribusn.com', password: await bcrypt.hash('password123', 10), name: 'Mamadou Diallo',
+          id: 'usr_1', email: 'mamadou@distribusn.com', password: await hashPassword('password123'), name: 'Mamadou Diallo',
           phone: '+221 77 100 00 01', role: 'admin', companyId,
         },
       }),
       db.user.create({
         data: {
-          id: 'usr_2', email: 'fatou@distribusn.com', password: await bcrypt.hash('password123', 10), name: 'Fatou Sylla',
+          id: 'usr_2', email: 'fatou@distribusn.com', password: await hashPassword('password123'), name: 'Fatou Sylla',
           phone: '+221 77 100 00 02', role: 'director', companyId,
         },
       }),
       db.user.create({
         data: {
-          id: 'usr_3', email: 'ibrahima@distribusn.com', password: await bcrypt.hash('password123', 10), name: 'Ibrahima Ndiaye',
+          id: 'usr_3', email: 'ibrahima@distribusn.com', password: await hashPassword('password123'), name: 'Ibrahima Ndiaye',
           phone: '+221 77 100 00 03', role: 'commercial', companyId,
         },
       }),
       db.user.create({
         data: {
-          id: 'usr_4', email: 'aissatou@distribusn.com', password: await bcrypt.hash('password123', 10), name: 'Aissatou Ba',
+          id: 'usr_4', email: 'aissatou@distribusn.com', password: await hashPassword('password123'), name: 'Aissatou Ba',
           phone: '+221 77 100 00 04', role: 'commercial', companyId,
         },
       }),
       db.user.create({
         data: {
-          id: 'usr_5', email: 'ousmane@distribusn.com', password: await bcrypt.hash('password123', 10), name: 'Ousmane Diop',
+          id: 'usr_5', email: 'ousmane@distribusn.com', password: await hashPassword('password123'), name: 'Ousmane Diop',
           phone: '+221 77 100 00 05', role: 'commercial', companyId,
         },
       }),

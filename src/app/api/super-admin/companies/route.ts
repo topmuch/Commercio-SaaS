@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { createWhatsAppLink, generateAccessCodeMessage } from '@/lib/whatsapp'
+import { hashPassword } from '@/lib/auth'
 
 // GET - List all companies (Super Admin only)
 export async function GET(request: NextRequest) {
@@ -117,7 +118,7 @@ export async function POST(request: NextRequest) {
       data: {
         name: adminName,
         email: adminEmail,
-        password: adminPassword, // In production, hash this password
+        password: await hashPassword(adminPassword),
         role: 'admin',
         companyId: company.id,
         active: true,

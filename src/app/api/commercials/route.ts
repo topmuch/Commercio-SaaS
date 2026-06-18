@@ -1,7 +1,6 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
-import { getCompanyId } from '@/lib/auth'
-import bcrypt from 'bcryptjs'
+import { getCompanyId, hashPassword } from '@/lib/auth'
 
 // ─── GET: List all commercials ─────────────────────────────────────────────
 export async function GET() {
@@ -118,7 +117,7 @@ export async function POST(request: Request) {
         name,
         email,
         phone: phone || null,
-        password: await bcrypt.hash(password, 10),
+        password: await hashPassword(password),
         role: 'commercial',
         active: true,
         companyId,

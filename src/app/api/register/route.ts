@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { getCompanyId } from '@/lib/auth'
-import bcrypt from 'bcryptjs'
+import { hashPassword } from '@/lib/auth'
 import { NextResponse } from 'next/server'
 
 // ─── POST: Public registration ──────────────────────────────────────────────
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
         name,
         email,
         phone: phone || null,
-        password: await bcrypt.hash(password, 10),
+        password: await hashPassword(password),
         role: 'commercial',
         active: true,
         companyId,

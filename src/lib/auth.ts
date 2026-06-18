@@ -211,3 +211,40 @@ export const authOptions: NextAuthOptions = {
     signIn: '/login',
   },
 }
+
+// ==========================================
+// Password Hashing & Verification
+// ==========================================
+
+const SALT_ROUNDS = 12
+
+/**
+ * Hash a password using bcrypt
+ * @param password - Plain text password
+ * @returns Hashed password
+ */
+export async function hashPassword(password: string): Promise<string> {
+  return await bcrypt.hash(password, SALT_ROUNDS)
+}
+
+/**
+ * Verify a password against a hash
+ * @param password - Plain text password
+ * @param hashedPassword - Hashed password to compare against
+ * @returns True if password matches
+ */
+export async function verifyPassword(
+  password: string,
+  hashedPassword: string
+): Promise<boolean> {
+  return await bcrypt.compare(password, hashedPassword)
+}
+
+/**
+ * Check if a password is already hashed (starts with $2a$, $2b$, or $2y$)
+ * @param password - Password to check
+ * @returns True if password appears to be hashed
+ */
+export function isHashedPassword(password: string): boolean {
+  return /^\$2[aby]\$/.test(password)
+}

@@ -1,6 +1,5 @@
 import { db } from '@/lib/db'
-import { getCompanyId, getAuthSession } from '@/lib/auth'
-import bcrypt from 'bcryptjs'
+import { getCompanyId, getAuthSession, hashPassword } from '@/lib/auth'
 import { NextResponse } from 'next/server'
 
 // ─── GET: List all users ──────────────────────────────────────────────────
@@ -104,7 +103,7 @@ export async function POST(request: Request) {
         name,
         email,
         phone: phone || null,
-        password: await bcrypt.hash(password, 10),
+        password: await hashPassword(password),
         role: userRole,
         active: true,
         companyId,
