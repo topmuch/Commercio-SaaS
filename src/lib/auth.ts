@@ -138,6 +138,27 @@ export async function isAdmin(): Promise<boolean> {
   }
 }
 
+// ==========================================
+// Session Configuration
+// ==========================================
+
+// Session duration settings
+const SESSION_MAX_AGE = 30 * 24 * 60 * 60 // 30 days in seconds
+const SESSION_UPDATE_AGE = 24 * 60 * 60 // 24 hours in seconds (refresh session if older than this)
+
+// JWT settings
+const JWT_MAX_AGE = SESSION_MAX_AGE
+
+/**
+ * Check if a JWT token needs refresh based on its expiration time
+ */
+export function shouldRefreshToken(tokenIssuedAt?: number): boolean {
+  if (!tokenIssuedAt) return true
+  const now = Math.floor(Date.now() / 1000)
+  const tokenAge = now - tokenIssuedAt
+  return tokenAge >= SESSION_UPDATE_AGE
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -182,33 +203,110 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           role: user.role,
           companyId: user.companyId,
+          phone: user.phone,
+          avatar: user.avatar,
         }
       },
     }),
   ],
   session: {
     strategy: 'jwt',
+    maxAge: SESSION_MAX_AGE,
+    updateAge: SESSION_UPDATE_AGE,
+  },
+  jwt: {
+    maxAge: JWT_MAX_AGE,
+  },
+  pages: {
+    signIn: '/login',
+    error: '/login',
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
+      // Initial sign in - add user data to token
       if (user) {
         token.id = user.id
+        token.email = user.email
+        token.name = user.name
         token.role = (user as unknown as { role: string }).role
         token.companyId = (user as unknown as { companyId: string }).companyId
+        token.phone = (user as unknown as { phone?: string }).phone
+        token.avatar = (user as unknown as { avatar?: string }).avatar
+        token.iat = Math.floor(Date.now() / 1000)
+        token.exp = Math.floor(Date.now() / 1000) + JWT_MAX_AGE
       }
+
+      // Handle session updates (e.g., profile updates)
+      if (trigger === 'update' && session) {
+        token.name = session.name
+        token.avatar = session.avatar
+        token.phone = session.phone
+      }
+
+      // Refresh token if needed
+      if (shouldRefreshToken(token.iat as number)) {
+        // Refresh user data from database to get latest info
+        try {
+          const freshUser = await db.user.findUnique({
+            where: { id: token.id as string },
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              phone: true,
+              avatar: true,
+              role: true,
+              active: true,
+              companyId: true,
+            },
+          })
+
+          if (freshUser && freshUser.active) {
+            token.id = freshUser.id
+            token.email = freshUser.email
+            token.name = freshUser.name
+            token.role = freshUser.role
+            token.companyId = freshUser.companyId
+            token.phone = freshUser.phone
+            token.avatar = freshUser.avatar
+            token.iat = Math.floor(Date.now() / 1000)
+            token.exp = Math.floor(Date.now() / 1000) + JWT_MAX_AGE
+          }
+        } catch (error) {
+          console.error('Error refreshing token:', error)
+        }
+      }
+
       return token
     },
     async session({ session, token }) {
       if (session.user) {
         (session.user as { id: string }).id = token.id as string
+        (session.user as { email: string }).email = token.email as string
+        (session.user as { name: string }).name = token.name as string
         (session.user as { role: string }).role = token.role as string
         (session.user as { companyId: string }).companyId = token.companyId as string
+        (session.user as { phone?: string }).phone = token.phone as string | undefined
+        (session.user as { avatar?: string }).avatar = token.avatar as string | undefined
+        (session.user as { iat?: number }).iat = token.iat as number
+        (session.user as { exp?: number }).exp = token.exp as number
       }
       return session
     },
   },
-  pages: {
-    signIn: '/login',
+  events: {
+    async signIn({ user, account, profile, isNewUser }) {
+      // Track sign-in events
+      console.log(`[Auth] User signed in: ${user.email} (${user.id})`)
+    },
+    async signOut({ token, session }) {
+      // Track sign-out events
+      console.log(`[Auth] User signed out: ${token?.email}`)
+    },
+    async session({ session, token }) {
+      // Track session creation
+      console.log(`[Auth] Session created for: ${session?.user?.email}`)
+    },
   },
 }
 
