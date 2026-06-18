@@ -102,7 +102,7 @@ export async function validateQuoteData(data: QuoteCreateInput): { valid: boolea
       if (!itemValidation.valid) {
         errors.push(`Item ${index + 1}: ${itemValidation.errors.join(', ')}`);
       }
-    });
+    }
   }
 
   // Discount
