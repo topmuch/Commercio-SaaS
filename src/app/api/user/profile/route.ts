@@ -1,85 +1,62 @@
-import { db } from '@/lib/db'
-import { getAuthSession } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
+import { getCurrentUserProfile, updateUserProfile } from '@/lib/user-profile'
 
-// GET /api/user/profile — Get the current user's profile
+/**
+ * GET /api/user/profile
+ * Get the current user's profile
+ */
 export async function GET() {
   try {
-    const session = await getAuthSession()
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+    const result = await getCurrentUserProfile()
+
+    if (result.success) {
+      return NextResponse.json(result, { status: 200 })
+    } else {
+      return NextResponse.json(result, { status: 401 })
     }
-
-    const userId = (session.user as { id: string }).id
-
-    const user = await db.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        avatar: true,
-        role: true,
-        active: true,
-        companyId: true,
-        createdAt: true,
+  } catch (error) {
+    console.error('[API] Error in /api/user/profile:', error)
+    return NextResponse.json(
+      {
+        success: false,
+        message: 'An unexpected error occurred.',
       },
-    })
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Utilisateur introuvable' },
-        { status: 404 }
-      )
-    }
-
-    return NextResponse.json({ data: user })
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Échec du chargement du profil'
-    return NextResponse.json({ error: message }, { status: 500 })
+      { status: 500 }
+    )
   }
 }
 
-// PUT /api/user/profile — Mettre à jour le profil utilisateur
-export async function PUT(request: NextRequest) {
+/**
+ * PATCH /api/user/profile
+ * Update the current user's profile information
+ *
+ * Request body:
+ * {
+ *   name?: string
+ *   phone?: string
+ *   avatar?: string
+ * }
+ */
+export async function PATCH(request: NextRequest) {
   try {
-    const session = await getAuthSession()
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
-    }
-
-    const userId = (session.user as { id: string }).id
-
     const body = await request.json()
-    const { name, email, phone } = body
+    const { name, phone, avatar } = body
 
-    // Vérifier que l'utilisateur existe
-    const existing = await db.user.findUnique({
-      where: { id: userId },
-    })
+    const result = await updateUserProfile({ name, phone, avatar })
 
-    if (!existing) {
-      return NextResponse.json(
-        { error: 'Utilisateur introuvable' },
-        { status: 404 }
-      )
+    if (result.success) {
+      return NextResponse.json(result, { status: 200 })
+    } else {
+      return NextResponse.json(result, { status: 400 })
     }
-
-    // Ne mettre à jour que les champs fournis
-    const data: Record<string, unknown> = {}
-    if (name !== undefined) data.name = name
-    if (email !== undefined) data.email = email
-    if (phone !== undefined) data.phone = phone
-
-    const user = await db.user.update({
-      where: { id: userId },
-      data,
-    })
-
-    return NextResponse.json({ data: user })
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Échec de la mise à jour du profil'
-    return NextResponse.json({ error: message }, { status: 500 })
+  } catch (error) {
+    console.error('[API] Error in /api/user/profile PATCH:', error)
+    return NextResponse.json(
+      {
+        success: false,
+        message: 'An unexpected error occurred.',
+      },
+      { status: 500 }
+    )
   }
 }
