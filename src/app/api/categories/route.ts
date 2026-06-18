@@ -1,66 +1,127 @@
-import { db } from '@/lib/db'
-import { getCompanyId } from '@/lib/auth'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server';
+import { getSession } from '@/lib/auth';
+import {
+  createCategory,
+  listCategories,
+  getCategoryTree,
+  getCategoryStatistics,
+  searchCategories,
+} from '@/lib/categories';
 
-// GET /api/categories
+/**
+ * GET /api/categories - List categories or get category tree/stats
+ * Query params:
+ * - page: page number (default: 1)
+ * - pageSize: items per page (default: 20)
+ * - parentId: filter by parent category (null for root)
+ * - search: search by name
+ * - sortBy: name|createdAt|updatedAt (default: name)
+ * - sortOrder: asc|desc (default: asc)
+ * - tree: "true" to get category tree
+ * - stats: "true" to get statistics
+ * - q: search query
+ */
 export async function GET(request: NextRequest) {
   try {
-    const companyId = await getCompanyId()
-    const categories = await db.category.findMany({
-      where: { companyId },
-      include: {
-        _count: { select: { products: true } },
-      },
-      orderBy: { name: 'asc' },
-    })
-    return NextResponse.json({ data: categories })
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Erreur lors de la récupération des catégories'
-    return NextResponse.json({ error: message }, { status: 500 })
+    const session = await getSession();
+
+    if (!session?.user?.companyId) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const searchParams = request.nextUrl.searchParams;
+
+    // Check if statistics requested
+    if (searchParams.get('stats') === 'true') {
+      const result = await getCategoryStatistics(session.user.companyId);
+      return NextResponse.json(result);
+    }
+
+    // Check if tree requested
+    if (searchParams.get('tree') === 'true') {
+      const result = await getCategoryTree(session.user.companyId);
+      return NextResponse.json(result);
+    }
+
+    // Check if search query provided
+    const searchQuery = searchParams.get('q');
+    if (searchQuery) {
+      const limit = parseInt(searchParams.get('limit') || '10', 10);
+      const result = await searchCategories(
+        session.user.companyId,
+        searchQuery,
+        limit
+      );
+      return NextResponse.json(result);
+    }
+
+    // Parse list options
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const pageSize = parseInt(searchParams.get('pageSize') || '20', 10);
+    const parentId = searchParams.get('parentId') || undefined;
+    const search = searchParams.get('search') || undefined;
+    const sortBy =
+      (searchParams.get('sortBy') as 'name' | 'createdAt' | 'updatedAt') ||
+      'name';
+    const sortOrder =
+      (searchParams.get('sortOrder') as 'asc' | 'desc') || 'asc';
+
+    const result = await listCategories(session.user.companyId, {
+      page,
+      pageSize,
+      parentId,
+      search,
+      sortBy,
+      sortOrder,
+    });
+
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error('Error in GET /api/categories:', error);
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
-// POST /api/categories
+/**
+ * POST /api/categories - Create a new category
+ * Body: { name: string, parentId?: string, image?: string }
+ */
 export async function POST(request: NextRequest) {
   try {
-    const companyId = await getCompanyId()
+    const session = await getSession();
 
-    // Verify the company exists
-    const company = await db.company.findUnique({ where: { id: companyId } })
-    if (!company) {
+    if (!session?.user?.companyId) {
       return NextResponse.json(
-        { error: 'Entreprise introuvable. Veuillez contacter l\'administrateur.' },
-        { status: 404 }
-      )
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
-    const body = await request.json()
-    const { name, parentId } = body
+    const body = await request.json();
+    const { name, parentId, image } = body;
 
-    if (!name) {
-      return NextResponse.json({ error: 'Le nom de la catégorie est requis' }, { status: 400 })
+    const result = await createCategory(session.user.companyId, {
+      name,
+      parentId,
+      image,
+    });
+
+    if (result.success) {
+      return NextResponse.json(result, { status: 201 });
+    } else {
+      return NextResponse.json(result, { status: 400 });
     }
-
-    // Validate parentId if provided
-    if (parentId) {
-      const parentExists = await db.category.findUnique({
-        where: { id: parentId },
-      })
-      if (!parentExists) {
-        return NextResponse.json(
-          { error: 'Catégorie parente introuvable' },
-          { status: 400 }
-        )
-      }
-    }
-
-    const category = await db.category.create({
-      data: { name, parentId: parentId || null, companyId },
-    })
-    return NextResponse.json(category)
-  } catch (error: unknown) {
-    console.error('[POST /api/categories] Error:', error)
-    const message = error instanceof Error ? error.message : 'Erreur serveur'
-    return NextResponse.json({ error: message }, { status: 500 })
+  } catch (error) {
+    console.error('Error in POST /api/categories:', error);
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
