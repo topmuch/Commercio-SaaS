@@ -1,87 +1,87 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth';
+import { NextRequest, NextResponse } from 'next/server'
 import {
   getPaymentById,
   updatePayment,
+  updatePaymentStatus,
   deletePayment,
-} from '@/lib/payments';
+  UpdatePaymentInput,
+} from '@/lib/payments'
 
 /**
  * GET /api/payments/[paymentId] - Get payment by ID
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ paymentId: string }> }
+  { params }: { params: { paymentId: string } }
 ) {
   try {
-    const session = await getSession();
+    const { paymentId } = params
 
-    if (!session?.user?.companyId) {
+    // Get company ID from header
+    const companyId = request.headers.get('x-company-id')
+    if (!companyId) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+        { error: 'Company ID is required' },
+        { status: 400 }
+      )
     }
 
-    const { paymentId } = await params;
-
-    const result = await getPaymentById(paymentId, session.user.companyId);
-
-    if (result.success) {
-      return NextResponse.json(result);
-    } else {
-      return NextResponse.json(result, { status: 404 });
-    }
+    const payment = await getPaymentById(paymentId, companyId)
+    return NextResponse.json({ payment })
   } catch (error) {
-    console.error('Error in GET /api/payments/[paymentId]:', error);
+    console.error('Error getting payment:', error)
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+      { error: error instanceof Error ? error.message : 'Failed to get payment' },
+      { status: error instanceof Error && error.message === 'Payment not found' ? 404 : 500 }
+    )
   }
 }
 
 /**
  * PATCH /api/payments/[paymentId] - Update payment
- * Body: { status?: string, amount?: number, method?: string, reference?: string, notes?: string }
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ paymentId: string }> }
+  { params }: { params: { paymentId: string } }
 ) {
   try {
-    const session = await getSession();
+    const { paymentId } = params
 
-    if (!session?.user?.companyId) {
+    // Get company ID from header
+    const companyId = request.headers.get('x-company-id')
+    if (!companyId) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+        { error: 'Company ID is required' },
+        { status: 400 }
+      )
     }
 
-    const { paymentId } = await params;
-    const body = await request.json();
-    const { status, amount, method, reference, notes } = body;
+    const body = await request.json()
 
-    const result = await updatePayment(paymentId, session.user.companyId, {
-      status,
-      amount,
-      method,
-      reference,
-      notes,
-    });
-
-    if (result.success) {
-      return NextResponse.json(result);
-    } else {
-      return NextResponse.json(result, { status: 400 });
+    // Check if updating status only
+    if (body.status !== undefined && Object.keys(body).length === 1) {
+      const payment = await updatePaymentStatus(paymentId, companyId, body.status)
+      return NextResponse.json({ payment })
     }
+
+    // Otherwise, update payment details
+    const updateData: UpdatePaymentInput = {
+      ...(body.amount !== undefined && { amount: body.amount }),
+      ...(body.method !== undefined && { method: body.method }),
+      ...(body.reference !== undefined && { reference: body.reference }),
+      ...(body.status !== undefined && { status: body.status }),
+      ...(body.notes !== undefined && { notes: body.notes }),
+      ...(body.invoiceId !== undefined && { invoiceId: body.invoiceId }),
+    }
+
+    const payment = await updatePayment(paymentId, companyId, updateData)
+    return NextResponse.json({ payment })
   } catch (error) {
-    console.error('Error in PATCH /api/payments/[paymentId]:', error);
+    console.error('Error updating payment:', error)
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+      { error: error instanceof Error ? error.message : 'Failed to update payment' },
+      { status: error instanceof Error && error.message === 'Payment not found' ? 404 : 500 }
+    )
   }
 }
 
@@ -90,32 +90,27 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ paymentId: string }> }
+  { params }: { params: { paymentId: string } }
 ) {
   try {
-    const session = await getSession();
+    const { paymentId } = params
 
-    if (!session?.user?.companyId) {
+    // Get company ID from header
+    const companyId = request.headers.get('x-company-id')
+    if (!companyId) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+        { error: 'Company ID is required' },
+        { status: 400 }
+      )
     }
 
-    const { paymentId } = await params;
-
-    const result = await deletePayment(paymentId, session.user.companyId);
-
-    if (result.success) {
-      return NextResponse.json(result);
-    } else {
-      return NextResponse.json(result, { status: 400 });
-    }
+    const result = await deletePayment(paymentId, companyId)
+    return NextResponse.json(result)
   } catch (error) {
-    console.error('Error in DELETE /api/payments/[paymentId]:', error);
+    console.error('Error deleting payment:', error)
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+      { error: error instanceof Error ? error.message : 'Failed to delete payment' },
+      { status: error instanceof Error && error.message === 'Payment not found' ? 404 : 500 }
+    )
   }
 }

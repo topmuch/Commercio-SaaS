@@ -1,142 +1,117 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth';
+import { NextRequest, NextResponse } from 'next/server'
 import {
   createPayment,
   listPayments,
   getPaymentStatistics,
-} from '@/lib/payments';
+  CreatePaymentInput,
+  PaymentFilters,
+} from '@/lib/payments'
 
 /**
  * GET /api/payments - List payments or get statistics
- * Query params:
- * - page: page number (default: 1)
- * - pageSize: items per page (default: 20)
- * - clientId: filter by client
- * - invoiceId: filter by invoice
- * - method: filter by method
- * - status: filter by status
- * - minDate: filter by minimum date
- * - maxDate: filter by maximum date
- * - minAmount: filter by minimum amount
- * - maxAmount: filter by maximum amount
- * - search: search term
- * - sortBy: amount|createdAt|updatedAt|method|status (default: createdAt)
- * - sortOrder: asc|desc (default: desc)
- * - stats: "true" to get statistics
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await getSession();
+    const searchParams = request.nextUrl.searchParams
+    const stats = searchParams.get('stats') === 'true'
 
-    if (!session?.user?.companyId) {
+    // Get company ID from header (in a real app, this would come from authentication)
+    const companyId = request.headers.get('x-company-id')
+    if (!companyId) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+        { error: 'Company ID is required' },
+        { status: 400 }
+      )
     }
 
-    const searchParams = request.nextUrl.searchParams;
-
-    // Check if statistics requested
-    if (searchParams.get('stats') === 'true') {
-      const result = await getPaymentStatistics(session.user.companyId);
-      return NextResponse.json(result);
+    // Return statistics if requested
+    if (stats) {
+      const statistics = await getPaymentStatistics(companyId)
+      return NextResponse.json({ statistics })
     }
 
-    // Parse list options
-    const page = parseInt(searchParams.get('page') || '1', 10);
-    const pageSize = parseInt(searchParams.get('pageSize') || '20', 10);
-    const clientId = searchParams.get('clientId') || undefined;
-    const invoiceId = searchParams.get('invoiceId') || undefined;
-    const method = searchParams.get('method') || undefined;
-    const status = searchParams.get('status') || undefined;
-    const minDateStr = searchParams.get('minDate');
-    const maxDateStr = searchParams.get('maxDate');
-    const minAmount = searchParams.get('minAmount')
-      ? parseFloat(searchParams.get('minAmount')!)
-      : undefined;
-    const maxAmount = searchParams.get('maxAmount')
-      ? parseFloat(searchParams.get('maxAmount')!)
-      : undefined;
-    const search = searchParams.get('search') || undefined;
-    const sortBy =
-      (searchParams.get('sortBy') as 'amount' | 'createdAt' | 'updatedAt' | 'method' | 'status') ||
-      'createdAt';
-    const sortOrder = (searchParams.get('sortOrder') as 'asc' | 'desc') || 'desc';
+    // Parse filters
+    const filters: PaymentFilters = {
+      clientId: searchParams.get('clientId') || undefined,
+      invoiceId: searchParams.get('invoiceId') || undefined,
+      method: (searchParams.get('method') as any) || undefined,
+      status: (searchParams.get('status') as any) || undefined,
+      search: searchParams.get('search') || undefined,
+      dateFrom: searchParams.get('dateFrom')
+        ? new Date(searchParams.get('dateFrom')!)
+        : undefined,
+      dateTo: searchParams.get('dateTo')
+        ? new Date(searchParams.get('dateTo')!)
+        : undefined,
+      minAmount: searchParams.get('minAmount')
+        ? parseFloat(searchParams.get('minAmount')!)
+        : undefined,
+      maxAmount: searchParams.get('maxAmount')
+        ? parseFloat(searchParams.get('maxAmount')!)
+        : undefined,
+    }
 
-    const minDate = minDateStr ? new Date(minDateStr) : undefined;
-    const maxDate = maxDateStr ? new Date(maxDateStr) : undefined;
+    // Parse pagination
+    const page = parseInt(searchParams.get('page') || '1', 10)
+    const pageSize = parseInt(searchParams.get('pageSize') || '20', 10)
 
-    const result = await listPayments(session.user.companyId, {
-      page,
-      pageSize,
-      clientId,
-      invoiceId,
-      method,
-      status,
-      minDate,
-      maxDate,
-      minAmount,
-      maxAmount,
-      search,
-      sortBy,
-      sortOrder,
-    });
+    // Parse sorting
+    const sortBy = (searchParams.get('sortBy') as 'createdAt' | 'amount') || 'createdAt'
+    const sortOrder = (searchParams.get('sortOrder') as 'asc' | 'desc') || 'desc'
 
-    return NextResponse.json(result);
+    const result = await listPayments(companyId, filters, sortBy, sortOrder, page, pageSize)
+    return NextResponse.json(result)
   } catch (error) {
-    console.error('Error in GET /api/payments:', error);
+    console.error('Error listing payments:', error)
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      { error: error instanceof Error ? error.message : 'Failed to list payments' },
       { status: 500 }
-    );
+    )
   }
 }
 
 /**
  * POST /api/payments - Create a new payment
- * Body: {
- *   clientId: string,
- *   amount: number,
- *   method: 'cash'|'bank_transfer'|'check'|'mobile_payment',
- *   reference?: string,
- *   notes?: string,
- *   invoiceId?: string
- * }
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSession();
-
-    if (!session?.user?.companyId) {
+    // Get company ID from header
+    const companyId = request.headers.get('x-company-id')
+    if (!companyId) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+        { error: 'Company ID is required' },
+        { status: 400 }
+      )
     }
 
-    const body = await request.json();
-    const { clientId, amount, method, reference, notes, invoiceId } = body;
+    const body = await request.json()
 
-    const result = await createPayment(session.user.companyId, {
-      clientId,
-      amount,
-      method,
-      reference,
-      notes,
-      invoiceId,
-    });
-
-    if (result.success) {
-      return NextResponse.json(result, { status: 201 });
-    } else {
-      return NextResponse.json(result, { status: 400 });
+    // Validate required fields
+    if (!body.amount || !body.method || !body.clientId) {
+      return NextResponse.json(
+        { error: 'Missing required fields: amount, method, clientId' },
+        { status: 400 }
+      )
     }
+
+    const paymentData: CreatePaymentInput = {
+      amount: body.amount,
+      method: body.method,
+      reference: body.reference,
+      status: body.status,
+      notes: body.notes,
+      invoiceId: body.invoiceId,
+      clientId: body.clientId,
+      companyId,
+    }
+
+    const payment = await createPayment(companyId, paymentData)
+    return NextResponse.json({ payment }, { status: 201 })
   } catch (error) {
-    console.error('Error in POST /api/payments:', error);
+    console.error('Error creating payment:', error)
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      { error: error instanceof Error ? error.message : 'Failed to create payment' },
       { status: 500 }
-    );
+    )
   }
 }
