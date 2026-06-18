@@ -31,11 +31,11 @@ interface ChatMessage {
 // ── Suggestions ───────────────────────────────────────────────────────
 
 const suggestions = [
-  { id: 's1', label: 'Analyse des ventes du mois', icon: TrendingUp, color: 'text-primary' },
-  { id: 's2', label: 'Produits en alerte stock', icon: Package, color: 'text-erp-warning' },
-  { id: 's3', label: 'Performance des commerciaux', icon: Users, color: 'text-erp-orange' },
-  { id: 's4', label: 'Prévisions de ventes', icon: TrendingUp, color: 'text-erp-success' },
-  { id: 's5', label: 'Recommandations produits', icon: Lightbulb, color: 'text-chart-4' },
+  { id: 's1', label: 'Analyse des ventes du mois', icon: TrendingUp, color: 'text-emerald-400', question: 'Analyse mes ventes des 30 derniers jours' },
+  { id: 's2', label: 'Produits en alerte stock', icon: Package, color: 'text-amber-400', question: 'Quels produits ont un stock faible?' },
+  { id: 's3', label: 'Clients les plus fidèles', icon: Users, color: 'text-blue-400', question: 'Quels sont mes clients les plus fidèles?' },
+  { id: 's4', label: 'Tendances de ventes', icon: TrendingUp, color: 'text-purple-400', question: 'Quelles sont les tendances de mes ventes?' },
+  { id: 's5', label: 'Recommandations', icon: Lightbulb, color: 'text-yellow-400', question: 'Comment améliorer mes ventes?' },
 ]
 
 // ── Markdown-like renderer ────────────────────────────────────────────
@@ -196,12 +196,12 @@ Cliquez sur une suggestion ci-dessous ou tapez votre question pour commencer.`,
       const history = messages
         .filter((m) => m.id !== 'welcome')
         .slice(-10)
-        .map((m) => ({ role: m.role, content: m.content }))
+        .map((m) => ({ role: m.role, content: m.content, timestamp: m.timestamp }))
 
-      const res = await fetch('/api/ai', {
+      const res = await fetch('/api/ai/assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text.trim(), history }),
+        body: JSON.stringify({ messages: history, context: { companyId: 'current' } }),
       })
 
       if (!res.ok) {
@@ -214,7 +214,7 @@ Cliquez sur une suggestion ci-dessous ou tapez votre question pour commencer.`,
       const aiMessage: ChatMessage = {
         id: `ai-${Date.now()}`,
         role: 'assistant',
-        content: json.response,
+        content: json.data.message,
         timestamp: new Date(),
       }
       setMessages((prev) => [...prev, aiMessage])

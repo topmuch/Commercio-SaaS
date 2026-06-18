@@ -36,6 +36,8 @@ model Company {
   whatsappOrders  WhatsappOrder[]
   subscriptions  Subscription[]
   saasPayments  SaasPayment[]
+  supportTickets SupportTicket[]
+  apiKeys    ApiKey[]
 }
 
 // ===== USERS =====
@@ -64,6 +66,8 @@ model User {
   posts      Post[]
   postReactions PostReaction[]
   postComments   PostComment[]
+  supportTickets SupportTicket[]
+  apiKeys    ApiKey[]
 
   @@unique([email, companyId])
   @@index([companyId])
@@ -580,4 +584,67 @@ model SaasPayment {
   @@index([subscriptionId])
   @@index([companyId])
   @@index([status])
+}
+
+// ===== SUPPORT TICKETS =====
+model SupportTicket {
+  id          String   @id @default(cuid())
+  companyId   String
+  userId      String
+  subject     String
+  description String
+  priority    String   @default("normal") // low, normal, high, urgent
+  status      String   @default("open") // open, in_progress, resolved, closed
+  category    String   // technical, billing, feature, bug, question
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  resolvedAt  DateTime?
+
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id])
+  messages    SupportMessage[]
+
+  @@index([companyId])
+  @@index([userId])
+  @@index([status])
+  @@index([priority])
+}
+
+// ===== SUPPORT MESSAGES =====
+model SupportMessage {
+  id          String   @id @default(cuid())
+  ticketId    String
+  senderId    String
+  senderType  String   // user, support
+  content     String
+  attachments String?  // JSON array of file URLs
+  isInternal  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  ticket      SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([senderId])
+}
+
+// ===== API KEYS =====
+model ApiKey {
+  id          String   @id @default(cuid())
+  companyId   String
+  userId      String
+  name        String
+  key         String   @unique
+  scopes      String   // JSON array of scopes: ["clients:read", "clients:write", "products:read", "products:write", "orders:read", "orders:write"]
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([userId])
+  @@index([key])
 }
