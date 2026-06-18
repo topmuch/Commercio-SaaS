@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { getCompanyId } from '@/lib/auth'
-import { LLM } from 'z-ai-web-dev-sdk'
+import ZAI from 'z-ai-web-dev-sdk'
 import { NextRequest, NextResponse } from 'next/server'
 
 interface Message {
@@ -126,7 +126,8 @@ DIRECTIVES:
 Si tu n'as pas assez d'informations, demande des clarifications.`
 
     // Initialiser LLM
-    const llm = new LLM({
+    const ai = await ZAI.create()
+    const llm = new ai.LLM({
       apiKey: process.env.ZAI_API_KEY || '',
     })
 

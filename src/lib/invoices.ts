@@ -48,7 +48,7 @@ export type InvoiceListOptions = {
 
 // ===== VALIDATION =====
 
-export function validateInvoiceItem(item: InvoiceItemInput): { valid: boolean; errors: string[] } {
+export async function validateInvoiceItem(item: InvoiceItemInput): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
   // Product ID
@@ -85,7 +85,7 @@ export function validateInvoiceItem(item: InvoiceItemInput): { valid: boolean; e
   };
 }
 
-export function validateInvoiceData(data: InvoiceCreateInput): { valid: boolean; errors: string[] } {
+export async function validateInvoiceData(data: InvoiceCreateInput): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
   // Client ID
@@ -172,7 +172,7 @@ async function generateInvoiceNumber(companyId: string): Promise<string> {
 /**
  * Calculate invoice totals
  */
-export function calculateInvoiceTotals(
+export async function calculateInvoiceTotals(
   items: InvoiceItemInput[],
   discount?: number,
   tax?: number
@@ -237,7 +237,7 @@ async function updateInvoicePaymentStatus(invoiceId: string) {
 export async function createInvoice(companyId: string, data: InvoiceCreateInput) {
   try {
     // Validate data
-    const validation = validateInvoiceData(data);
+    const validation = await validateInvoiceData(data);
     if (!validation.valid) {
       return {
         success: false,
@@ -331,7 +331,7 @@ export async function createInvoice(companyId: string, data: InvoiceCreateInput)
     }
 
     // Calculate totals
-    const { subtotal, total } = calculateInvoiceTotals(data.items, data.discount, data.tax);
+    const { subtotal, total } = await calculateInvoiceTotals(data.items, data.discount, data.tax);
 
     // Generate invoice number
     const invoiceNumber = await generateInvoiceNumber(companyId);

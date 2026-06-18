@@ -189,10 +189,10 @@ export async function updateUserProfile(data: ProfileUpdateData): Promise<Profil
  * - At least one number
  * - At least one special character
  */
-export function validatePasswordStrength(password: string): {
+export async function validatePasswordStrength(password: string): Promise<{
   valid: boolean
   errors: string[]
-} {
+}> {
   const errors: string[] = []
 
   if (password.length < 8) {

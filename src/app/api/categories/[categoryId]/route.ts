@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth';
+import { getAuthSession } from '@/lib/auth';
 import {
   getCategoryById,
   updateCategory,
@@ -14,7 +14,7 @@ export async function GET(
   { params }: { params: Promise<{ categoryId: string }> }
 ) {
   try {
-    const session = await getSession();
+    const session = await getAuthSession();
 
     if (!session?.user?.companyId) {
       return NextResponse.json(
@@ -50,7 +50,7 @@ export async function PATCH(
   { params }: { params: Promise<{ categoryId: string }> }
 ) {
   try {
-    const session = await getSession();
+    const session = await getAuthSession();
 
     if (!session?.user?.companyId) {
       return NextResponse.json(
@@ -91,7 +91,7 @@ export async function DELETE(
   { params }: { params: Promise<{ categoryId: string }> }
 ) {
   try {
-    const session = await getSession();
+    const session = await getAuthSession();
 
     if (!session?.user?.companyId) {
       return NextResponse.json(

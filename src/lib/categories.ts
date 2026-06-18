@@ -40,7 +40,7 @@ export interface CategoryWithChildren {
 }
 
 // ===== VALIDATION =====
-export function validateCategoryData(data: CategoryCreateInput): { valid: boolean; errors: string[] } {
+export async function validateCategoryData(data: CategoryCreateInput): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
   // Name validation
@@ -69,7 +69,7 @@ export function validateCategoryData(data: CategoryCreateInput): { valid: boolea
 export async function createCategory(companyId: string, data: CategoryCreateInput) {
   try {
     // Validate data
-    const validation = validateCategoryData(data);
+    const validation = await validateCategoryData(data);
     if (!validation.valid) {
       return {
         success: false,
@@ -348,7 +348,7 @@ export async function updateCategory(
   try {
     // Validate data if name is provided
     if (data.name !== undefined) {
-      const validation = validateCategoryData({
+      const validation = await validateCategoryData({
         name: data.name,
         parentId: data.parentId,
         image: data.image,

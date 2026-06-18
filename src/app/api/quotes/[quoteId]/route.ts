@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth';
+import { getAuthSession } from '@/lib/auth';
 import {
   getQuoteById,
   updateQuoteStatus,
@@ -15,7 +15,7 @@ export async function GET(
   { params }: { params: Promise<{ quoteId: string }> }
 ) {
   try {
-    const session = await getSession();
+    const session = await getAuthSession();
 
     if (!session?.user?.companyId) {
       return NextResponse.json(
@@ -51,7 +51,7 @@ export async function PATCH(
   { params }: { params: Promise<{ quoteId: string }> }
 ) {
   try {
-    const session = await getSession();
+    const session = await getAuthSession();
 
     if (!session?.user?.companyId) {
       return NextResponse.json(
@@ -112,7 +112,7 @@ export async function DELETE(
   { params }: { params: Promise<{ quoteId: string }> }
 ) {
   try {
-    const session = await getSession();
+    const session = await getAuthSession();
 
     if (!session?.user?.companyId) {
       return NextResponse.json(

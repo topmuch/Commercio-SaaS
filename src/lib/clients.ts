@@ -53,7 +53,7 @@ export type ClientResult<T = any> = {
 /**
  * Validate client data
  */
-export function validateClientData(data: ClientData): { valid: boolean; errors: string[] } {
+export async function validateClientData(data: ClientData): { valid: boolean; errors: string[] } {
   const errors: string[] = []
 
   // Company name validation
@@ -152,7 +152,7 @@ export async function createClient(data: ClientData): Promise<ClientResult> {
     const companyId = await getCompanyId()
 
     // Validate client data
-    const validation = validateClientData(data)
+    const validation = await validateClientData(data)
     if (!validation.valid) {
       return {
         success: false,
@@ -447,7 +447,7 @@ export async function updateClient(clientId: string, data: Partial<ClientData>):
     const companyId = await getCompanyId()
 
     // Validate client data
-    const validation = validateClientData(data as ClientData)
+    const validation = await validateClientData(data as ClientData)
     if (!validation.valid) {
       return {
         success: false,

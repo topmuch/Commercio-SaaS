@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth';
+import { getAuthSession } from '@/lib/auth';
 import {
   createInvoice,
   listInvoices,
@@ -28,7 +28,7 @@ import {
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await getSession();
+    const session = await getAuthSession();
 
     if (!session?.user?.companyId) {
       return NextResponse.json(
@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSession();
+    const session = await getAuthSession();
 
     if (!session?.user?.companyId) {
       return NextResponse.json(

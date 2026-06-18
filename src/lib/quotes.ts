@@ -48,7 +48,7 @@ export type QuoteListOptions = {
 
 // ===== VALIDATION =====
 
-export function validateQuoteItem(item: QuoteItemInput): { valid: boolean; errors: string[] } {
+export async function validateQuoteItem(item: QuoteItemInput): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
   // Product ID
@@ -85,7 +85,7 @@ export function validateQuoteItem(item: QuoteItemInput): { valid: boolean; error
   };
 }
 
-export function validateQuoteData(data: QuoteCreateInput): { valid: boolean; errors: string[] } {
+export async function validateQuoteData(data: QuoteCreateInput): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
   // Client ID
@@ -97,8 +97,8 @@ export function validateQuoteData(data: QuoteCreateInput): { valid: boolean; err
   if (!data.items || data.items.length === 0) {
     errors.push('At least one item is required');
   } else {
-    data.items.forEach((item, index) => {
-      const itemValidation = validateQuoteItem(item);
+    for (const [index, item] of data.items.entries()) {
+      const itemValidation = await validateQuoteItem(item);
       if (!itemValidation.valid) {
         errors.push(`Item ${index + 1}: ${itemValidation.errors.join(', ')}`);
       }
@@ -175,7 +175,7 @@ async function generateQuoteNumber(companyId: string): Promise<string> {
 /**
  * Calculate quote totals
  */
-export function calculateQuoteTotals(
+export async function calculateQuoteTotals(
   items: QuoteItemInput[],
   discount?: number,
   tax?: number
@@ -196,7 +196,7 @@ export function calculateQuoteTotals(
 export async function createQuote(companyId: string, data: QuoteCreateInput) {
   try {
     // Validate data
-    const validation = validateQuoteData(data);
+    const validation = await validateQuoteData(data);
     if (!validation.valid) {
       return {
         success: false,
@@ -271,7 +271,7 @@ export async function createQuote(companyId: string, data: QuoteCreateInput) {
     }
 
     // Calculate totals
-    const { subtotal, total } = calculateQuoteTotals(data.items, data.discount, data.tax);
+    const { subtotal, total } = await calculateQuoteTotals(data.items, data.discount, data.tax);
 
     // Generate quote number
     const quoteNumber = await generateQuoteNumber(companyId);

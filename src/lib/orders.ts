@@ -51,7 +51,7 @@ export type OrderResult<T = any> = {
 /**
  * Validate order item data
  */
-export function validateOrderItem(item: OrderItemData): { valid: boolean; errors: string[] } {
+export async function validateOrderItem(item: OrderItemData): { valid: boolean; errors: string[] } {
   const errors: string[] = []
 
   if (!item.productId || typeof item.productId !== 'string') {

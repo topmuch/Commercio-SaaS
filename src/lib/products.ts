@@ -51,7 +51,7 @@ export type ProductResult<T = any> = {
 /**
  * Validate product data
  */
-export function validateProductData(data: ProductData): { valid: boolean; errors: string[] } {
+export async function validateProductData(data: ProductData): { valid: boolean; errors: string[] } {
   const errors: string[] = []
 
   // Name validation
