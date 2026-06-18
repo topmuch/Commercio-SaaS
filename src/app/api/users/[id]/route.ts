@@ -1,6 +1,5 @@
 import { db } from '@/lib/db'
-import { getCompanyId } from '@/lib/auth'
-import bcrypt from 'bcryptjs'
+import { getCompanyId, hashPassword, isHashedPassword } from '@/lib/auth'
 import { NextResponse } from 'next/server'
 
 // ─── PUT: Update a user ────────────────────────────────────────────────────
@@ -50,7 +49,14 @@ export async function PUT(
     if (phone !== undefined) updateData.phone = phone || null
     if (role) updateData.role = role
     if (active !== undefined) updateData.active = active
-    if (password && password.length >= 6) updateData.password = await bcrypt.hash(password, 10)
+    if (password && password.length >= 6) {
+      // Only hash if not already hashed
+      if (!isHashedPassword(password)) {
+        updateData.password = await hashPassword(password)
+      } else {
+        updateData.password = password
+      }
+    }
 
     const updated = await db.user.update({
       where: { id },
