@@ -32,6 +32,8 @@ const adminPages: PageId[] = [
   'boutique-settings',
   'reports',
   'ai-assistant',
+  'support-tickets',
+  'api-keys',
   'settings',
   'users',
   'install-app',

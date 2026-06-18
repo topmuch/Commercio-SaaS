@@ -26,6 +26,8 @@ const BoutiquePage = dynamic(() => import('@/components/boutique/boutique-page')
 const BoutiqueSettingsPage = dynamic(() => import('@/components/boutique/boutique-settings').then(m => m.default))
 const ReportsPage = dynamic(() => import('@/components/reports/reports-page').then(m => m.default))
 const AiAssistantPage = dynamic(() => import('@/components/ai/ai-assistant-page').then(m => m.default))
+const SupportTicketsPage = dynamic(() => import('@/components/support/support-tickets-page').then(m => m.default))
+const ApiKeysPage = dynamic(() => import('@/components/api/api-keys-page').then(m => m.default))
 const SettingsPage = dynamic(() => import('@/components/settings/settings-page').then(m => m.default))
 const UsersPage = dynamic(() => import('@/components/settings/users-management').then(m => m.UsersManagementPage))
 
@@ -47,6 +49,8 @@ const pageComponents: Partial<Record<PageId, React.ComponentType>> = {
   'boutique-settings': BoutiqueSettingsPage,
   reports: ReportsPage,
   'ai-assistant': AiAssistantPage,
+  'support-tickets': SupportTicketsPage,
+  'api-keys': ApiKeysPage,
   settings: SettingsPage,
   users: UsersPage,
 }

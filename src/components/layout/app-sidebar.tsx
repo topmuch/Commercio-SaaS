@@ -22,6 +22,8 @@ import {
   Smartphone,
   UserCog,
   CreditCard,
+  Headphones,
+  Key,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -83,10 +85,17 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: 'Analyse',
+    label: 'Analyse & IA',
     items: [
       { id: 'reports', label: 'Rapports', icon: BarChart3 },
       { id: 'ai-assistant', label: 'Assistant IA', icon: Bot },
+    ],
+  },
+  {
+    label: 'Support & API',
+    items: [
+      { id: 'support-tickets', label: 'Support', icon: Headphones },
+      { id: 'api-keys', label: 'Clés API', icon: Key },
     ],
   },
   {

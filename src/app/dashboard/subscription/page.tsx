@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useEffect, useState, useCallback } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -19,6 +19,7 @@ interface SubscriptionData {
 
 export default function SubscriptionPage() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const success = searchParams.get('success')
   const canceled = searchParams.get('canceled')
 
@@ -27,11 +28,7 @@ export default function SubscriptionPage() {
   const [data, setData] = useState<SubscriptionData | null>(null)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    loadSubscriptionData()
-  }, [])
-
-  const loadSubscriptionData = async () => {
+  const loadSubscriptionData = useCallback(async () => {
     try {
       const response = await fetch('/api/saas/subscription')
       if (!response.ok) throw new Error('Erreur lors du chargement')
@@ -42,7 +39,11 @@ export default function SubscriptionPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    loadSubscriptionData()
+  }, [loadSubscriptionData])
 
   const handleUpgrade = async (planId: string) => {
     if (planId === data?.company.plan) return
@@ -66,7 +67,8 @@ export default function SubscriptionPage() {
 
       // If checkout URL returned, redirect to payment
       if (result.data?.checkout_url) {
-        window.location.href = result.data.checkout_url
+        // Navigate to payment page
+        router.push(result.data.checkout_url)
       } else {
         // Demo mode, reload data
         await loadSubscriptionData()
