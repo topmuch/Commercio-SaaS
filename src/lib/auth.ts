@@ -2,6 +2,12 @@ import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import { db } from '@/lib/db'
 import bcrypt from 'bcryptjs'
+import {
+  checkRateLimitForRequest,
+  recordFailedAttempt,
+  recordSuccessfulAttempt,
+  getClientIP,
+} from '@/lib/rate-limit'
 
 /**
  * Gracefully get companyId from session, or fallback to demo company.
@@ -172,6 +178,13 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
+        // Check rate limit for login attempts (by email)
+        const rateLimitCheck = await checkRateLimitForRequest('login', credentials.email.toLowerCase())
+        if (!rateLimitCheck.allowed) {
+          console.log(`[Auth] Login rate limit exceeded for ${credentials.email}: ${rateLimitCheck.attempts} attempts`)
+          return null
+        }
+
         const user = await db.user.findFirst({
           where: { email: credentials.email },
           select: {
@@ -188,14 +201,21 @@ export const authOptions: NextAuthOptions = {
         })
 
         if (!user || !user.active) {
+          // Record failed attempt for non-existent or inactive user
+          await recordFailedAttempt(credentials.email.toLowerCase(), 'login', 'User not found or inactive')
           return null
         }
 
         // Secure password verification with bcrypt
         const isPasswordValid = await bcrypt.compare(credentials.password, user.password)
         if (!isPasswordValid) {
+          // Record failed attempt
+          await recordFailedAttempt(credentials.email.toLowerCase(), 'login', 'Invalid password')
           return null
         }
+
+        // Record successful attempt and reset rate limit
+        await recordSuccessfulAttempt(credentials.email.toLowerCase(), 'login')
 
         return {
           id: user.id,

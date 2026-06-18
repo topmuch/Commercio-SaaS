@@ -708,3 +708,44 @@ model PasswordResetToken {
   @@index([token])
   @@index([expiresAt])
 }
+
+// ===== RATE LIMIT ENTRIES =====
+model RateLimitEntry {
+  id          String   @id @default(cuid())
+
+  // Identifier (IP address, email, userId, etc.)
+  identifier  String
+
+  // Type of rate limit (login, password_reset, api_calls, etc.)
+  type        String
+
+  // Number of attempts
+  attempts    Int      @default(1)
+
+  // Timestamp of first attempt
+  firstAttemptAt DateTime
+
+  // Timestamp of last attempt
+  lastAttemptAt DateTime
+
+  // Expiration time (auto-cleanup)
+  expiresAt   DateTime
+
+  // Is blocked?
+  isBlocked   Boolean  @default(false)
+
+  // Block expiration (if blocked)
+  blockedUntil DateTime?
+
+  // Metadata (JSON string for additional info)
+  metadata    String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([identifier, type])
+  @@index([identifier])
+  @@index([type])
+  @@index([expiresAt])
+  @@index([isBlocked])
+}
