@@ -71,6 +71,7 @@ model User {
   postComments   PostComment[]
   supportTickets SupportTicket[]
   apiKeys    ApiKey[]
+  passwordResetTokens PasswordResetToken[]
 
   @@unique([email, companyId])
   @@index([companyId])
@@ -656,12 +657,12 @@ model ApiKey {
 model SiteSettings {
   id                String   @id @default(cuid())
   companyId         String?  @unique
-  
+
   // SEO Settings
   seoTitle          String?
   seoDescription    String?
   seoKeywords       String?
-  
+
   // Email Configuration
   smtpHost          String?
   smtpPort          Int?
@@ -669,19 +670,35 @@ model SiteSettings {
   smtpPassword      String?
   smtpFromEmail     String?
   smtpFromName      String?
-  
+
   // Email Templates (stored as JSON)
   emailTemplates    String?  // JSON string with email template configurations
-  
+
   // Platform Info
   platformName      String   @default("Commercio SaaS")
   platformLogo      String?
   supportEmail      String?
   supportPhone      String?
   supportAddress    String?
-  
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   company           Company?  @relation(fields: [companyId], references: [id])
+}
+
+// ===== PASSWORD RESET TOKENS =====
+model PasswordResetToken {
+  id          String   @id @default(cuid())
+  userId      String
+  token       String   @unique
+  expiresAt   DateTime
+  used        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
 }
