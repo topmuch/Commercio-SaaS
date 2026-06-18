@@ -1,0 +1,538 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ===== COMPANIES (Multi-tenant) =====
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  address   String?
+  logo      String?
+  plan      String   @default("free") // free, pro, enterprise
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+  clients   Client[]
+  products  Product[]
+  categories Category[]
+  orders    Order[]
+  quotes    Quote[]
+  invoices  Invoice[]
+  stockMovements StockMovement[]
+  visits    Visit[]
+  discussions Discussion[]
+  payments  Payment[]
+  storeSettings StoreSettings?
+  posts     Post[]
+  storeBanners    StoreBanner[]
+  whatsappOrders  WhatsappOrder[]
+}
+
+// ===== USERS =====
+model User {
+  id        String   @id @default(cuid())
+  email     String
+  password  String
+  name      String
+  phone     String?
+  avatar    String?
+  role      String   @default("commercial") // super_admin, admin, director, commercial, accountant
+  active    Boolean  @default(true)
+  companyId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company     Company  @relation(fields: [companyId], references: [id])
+  orders      Order[]
+  quotes      Quote[]
+  invoices    Invoice[]
+  visits      Visit[]
+  discussions Discussion[]
+  clients     Client[]
+
+  targets     Target[]
+  posts      Post[]
+  postReactions PostReaction[]
+  postComments   PostComment[]
+
+  @@unique([email, companyId])
+  @@index([companyId])
+}
+
+// ===== CLIENTS =====
+model Client {
+  id           String   @id @default(cuid())
+  companyName  String
+  contactName  String
+  phone        String
+  whatsapp     String?
+  email        String?
+  address      String?
+  city         String?
+  region       String?
+  latitude     Float?
+  longitude    Float?
+  sector       String?
+  type         String   @default("boutique") // boutique, revendeur, supermarche, grossiste
+  status       String   @default("lead_rouge") // lead_rouge, negociation_orange, client_vert
+  notes        String?
+  commercialId String?
+  companyId    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  company      Company  @relation(fields: [companyId], references: [id])
+  commercial   User?    @relation(fields: [commercialId], references: [id])
+  orders       Order[]
+  quotes       Quote[]
+  invoices     Invoice[]
+  visits       Visit[]
+  discussions  Discussion[]
+  payments     Payment[]
+
+  @@index([companyId])
+  @@index([commercialId])
+  @@index([companyName])
+}
+
+// ===== CATEGORIES =====
+model Category {
+  id        String     @id @default(cuid())
+  name      String
+  parentId  String?
+  image     String?
+  companyId String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  company   Company    @relation(fields: [companyId], references: [id])
+  parent    Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryTree")
+  products  Product[]
+
+  @@index([companyId])
+  @@index([parentId])
+}
+
+// ===== PRODUCTS =====
+model Product {
+  id           String   @id @default(cuid())
+  name         String
+  reference    String   @unique
+  description  String?
+  price        Float
+  resellerPrice Float?
+  image        String?
+  categoryId   String?
+  brand        String?
+  stock        Int      @default(0)
+  minStock     Int      @default(5)
+  status       String   @default("active") // active, inactive, archived
+  companyId    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  company      Company    @relation(fields: [companyId], references: [id])
+  category     Category?  @relation(fields: [categoryId], references: [id])
+  orderItems   OrderItem[]
+  quoteItems   QuoteItem[]
+  invoiceItems InvoiceItem[]
+  stockMovements StockMovement[]
+
+  @@index([companyId])
+  @@index([categoryId])
+  @@index([status])
+}
+
+// ===== ORDERS =====
+model Order {
+  id          String   @id @default(cuid())
+  number      String   @unique
+  status      String   @default("new") // new, validated, preparation, shipped, delivered
+  total       Float    @default(0)
+  discount    Float    @default(0)
+  tax         Float    @default(0)
+  notes       String?
+  clientId    String
+  commercialId String?
+  companyId   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company     Company  @relation(fields: [companyId], references: [id])
+  client      Client   @relation(fields: [clientId], references: [id])
+  commercial  User?    @relation(fields: [commercialId], references: [id])
+  items       OrderItem[]
+
+  @@index([companyId])
+  @@index([clientId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ===== ORDER ITEMS =====
+model OrderItem {
+  id         String  @id @default(cuid())
+  productId  String
+  orderId    String
+  quantity   Int
+  unitPrice  Float
+  totalPrice Float
+
+  product    Product @relation(fields: [productId], references: [id])
+  order      Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+// ===== QUOTES =====
+model Quote {
+  id          String   @id @default(cuid())
+  number      String   @unique
+  status      String   @default("draft") // draft, sent, accepted, refused
+  total       Float    @default(0)
+  discount    Float    @default(0)
+  tax         Float    @default(0)
+  validUntil  DateTime?
+  notes       String?
+  clientId    String
+  commercialId String?
+  companyId   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company     Company  @relation(fields: [companyId], references: [id])
+  client      Client   @relation(fields: [clientId], references: [id])
+  commercial  User?    @relation(fields: [commercialId], references: [id])
+  items       QuoteItem[]
+
+  @@index([companyId])
+  @@index([clientId])
+  @@index([status])
+}
+
+// ===== QUOTE ITEMS =====
+model QuoteItem {
+  id         String  @id @default(cuid())
+  productId  String
+  quoteId    String
+  quantity   Int
+  unitPrice  Float
+  totalPrice Float
+
+  product    Product @relation(fields: [productId], references: [id])
+  quote      Quote   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId])
+  @@index([productId])
+}
+
+// ===== INVOICES =====
+model Invoice {
+  id          String   @id @default(cuid())
+  number      String   @unique
+  status      String   @default("unpaid") // paid, partially_paid, unpaid, overdue
+  total       Float    @default(0)
+  paid        Float    @default(0)
+  discount    Float    @default(0)
+  tax         Float    @default(0)
+  dueDate     DateTime?
+  notes       String?
+  orderId     String?
+  clientId    String
+  commercialId String?
+  companyId   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company     Company  @relation(fields: [companyId], references: [id])
+  client      Client   @relation(fields: [clientId], references: [id])
+  commercial  User?    @relation(fields: [commercialId], references: [id])
+  items       InvoiceItem[]
+  payments    Payment[]
+
+  @@index([companyId])
+  @@index([clientId])
+  @@index([status])
+}
+
+// ===== INVOICE ITEMS =====
+model InvoiceItem {
+  id         String  @id @default(cuid())
+  productId  String
+  invoiceId  String
+  quantity   Int
+  unitPrice  Float
+  totalPrice Float
+
+  product    Product @relation(fields: [productId], references: [id])
+  invoice    Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([productId])
+}
+
+// ===== PAYMENTS =====
+model Payment {
+  id          String   @id @default(cuid())
+  amount      Float
+  method      String   @default("cash") // cash, bank_transfer, check, mobile_payment
+  reference   String?
+  status      String   @default("completed") // pending, completed, failed
+  notes       String?
+  invoiceId   String?
+  clientId    String
+  companyId   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  invoice     Invoice? @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  company     Company  @relation(fields: [companyId], references: [id])
+  client      Client   @relation(fields: [clientId], references: [id])
+
+  @@index([companyId])
+  @@index([clientId])
+  @@index([invoiceId])
+}
+
+// ===== STOCK MOVEMENTS =====
+model StockMovement {
+  id         String   @id @default(cuid())
+  type       String   // entry, exit, adjustment, inventory
+  quantity   Int
+  reason     String?
+  productId  String
+  companyId  String
+  createdAt  DateTime @default(now())
+
+  company    Company  @relation(fields: [companyId], references: [id])
+  product    Product  @relation(fields: [productId], references: [id])
+
+  @@index([companyId])
+  @@index([productId])
+  @@index([createdAt])
+}
+
+// ===== VISITS =====
+model Visit {
+  id          String   @id @default(cuid())
+  type        String   @default("visit") // visit, call, note
+  notes       String?
+  status      String   @default("completed") // planned, completed, cancelled
+  latitude    Float?
+  longitude   Float?
+  clientId    String
+  commercialId String
+  companyId   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company     Company  @relation(fields: [companyId], references: [id])
+  client      Client   @relation(fields: [clientId], references: [id])
+  commercial  User     @relation(fields: [commercialId], references: [id])
+
+  @@index([companyId])
+  @@index([clientId])
+  @@index([commercialId])
+  @@index([createdAt])
+}
+
+// ===== DISCUSSIONS =====
+model Discussion {
+  id          String   @id @default(cuid())
+  type        String   @default("message") // message, call, note, whatsapp
+  content     String
+  direction   String   @default("outgoing") // incoming, outgoing
+  clientId    String
+  commercialId String?
+  companyId   String
+  createdAt   DateTime @default(now())
+
+  company     Company  @relation(fields: [companyId], references: [id])
+  client      Client   @relation(fields: [clientId], references: [id])
+  commercial  User?    @relation(fields: [commercialId], references: [id])
+
+  @@index([companyId])
+  @@index([clientId])
+  @@index([createdAt])
+}
+
+// ===== STORE SETTINGS =====
+model StoreSettings {
+  id             String   @id @default(cuid())
+  companyId      String   @unique
+
+  // Boutique publique
+  whatsappNumber String?
+  storeTitle     String   @default("Boutique")
+  storeDescription String?
+  currency       String   @default("XOF")
+  isActive       Boolean  @default(true)
+  publicSlug     String?  @unique
+
+  // Entreprise
+  companyLogo    String?
+  companyName    String?
+  companyAddress String?
+
+  // Identité visuelle boutique
+  logoUrl        String?
+  primaryColor   String   @default("#10B981")
+
+  // SEO
+  seoTitle       String?
+  seoDescription String?
+  seoImage       String?
+
+  // Paramètres Email (SMTP)
+  smtpHost       String?
+  smtpPort       Int?
+  smtpUser       String?
+  smtpPass       String?
+  emailFrom      String?
+  emailSignature String?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  company        Company       @relation(fields: [companyId], references: [id])
+  banners        StoreBanner[]
+  whatsappOrders WhatsappOrder[]
+}
+
+// ===== STORE BANNERS (Slider promotions) =====
+model StoreBanner {
+  id           String    @id @default(cuid())
+  companyId    String
+  imageUrl     String
+  title        String?
+  subtitle     String?
+  linkUrl      String?
+  displayOrder Int       @default(0)
+  isActive     Boolean   @default(true)
+  startDate    DateTime?
+  endDate      DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  company      Company      @relation(fields: [companyId], references: [id])
+  storeSettings StoreSettings @relation(fields: [companyId], references: [companyId])
+
+  @@index([companyId])
+}
+
+// ===== WHATSAPP ORDERS (Commandes boutique publique) =====
+model WhatsappOrder {
+  id           String   @id @default(cuid())
+  companyId    String
+  clientName   String
+  clientPhone  String
+  items        String   // JSON array of order items
+  totalAmount  Float
+  status       String   @default("en_attente_validation") // en_attente_validation, confirmee, preparee, livree, annulee
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  company      Company      @relation(fields: [companyId], references: [id])
+  storeSettings StoreSettings @relation(fields: [companyId], references: [companyId])
+
+  @@index([companyId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ===== SOCIAL FEED POSTS =====
+model Post {
+  id           String   @id @default(cuid())
+  content      String?
+  authorId     String
+  companyId    String
+  isPinned     Boolean  @default(false)
+  likesCount   Int      @default(0)
+  commentsCount Int     @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  company     Company          @relation(fields: [companyId], references: [id])
+  author      User             @relation(fields: [authorId], references: [id])
+  attachments PostAttachment[]
+  reactions   PostReaction[]
+  comments    PostComment[]
+
+  @@index([companyId])
+  @@index([authorId])
+  @@index([createdAt])
+}
+
+model PostAttachment {
+  id        String   @id @default(cuid())
+  postId    String
+  type      String   // image, document
+  fileUrl   String
+  fileName  String
+  mimeType  String?
+  fileSize  Int?
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+}
+
+model PostReaction {
+  id     String @id @default(cuid())
+  postId String
+  userId String
+  type   String @default("like") // like, love, celebrate, insight
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([postId, userId, type])
+  @@index([postId])
+  @@index([userId])
+}
+
+model PostComment {
+  id             String   @id @default(cuid())
+  postId         String
+  authorId        String
+  content         String
+  parentCommentId String?
+  createdAt       DateTime @default(now())
+
+  post          Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author        User          @relation(fields: [authorId], references: [id])
+  parentComment PostComment?  @relation("CommentThread", fields: [parentCommentId], references: [id])
+  replies       PostComment[] @relation("CommentThread")
+
+  @@index([postId])
+  @@index([authorId])
+}
+
+// ===== TARGETS =====
+model Target {
+  id          String   @id @default(cuid())
+  type        String   @default("revenue") // revenue, clients, visits
+  value       Float
+  period      String   @default("monthly") // weekly, monthly, quarterly, yearly
+  startDate   DateTime
+  endDate     DateTime
+  achieved    Float    @default(0)
+  userId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
