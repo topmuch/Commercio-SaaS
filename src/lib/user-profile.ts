@@ -1,5 +1,3 @@
-'use server'
-
 import { db } from '@/lib/db'
 import { getAuthSession } from '@/lib/auth'
 import { hashPassword, verifyPassword } from '@/lib/auth'
@@ -8,8 +6,8 @@ export type UserProfile = {
   id: string
   email: string
   name: string
-  phone?: string
-  avatar?: string
+  phone?: string | null
+  avatar?: string | null
   role: string
   active: boolean
   companyId: string
@@ -189,10 +187,10 @@ export async function updateUserProfile(data: ProfileUpdateData): Promise<Profil
  * - At least one number
  * - At least one special character
  */
-export async function validatePasswordStrength(password: string): Promise<{
+export function validatePasswordStrength(password: string): {
   valid: boolean
   errors: string[]
-}> {
+} {
   const errors: string[] = []
 
   if (password.length < 8) {
