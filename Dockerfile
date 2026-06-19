@@ -64,6 +64,10 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 
+# Copy auto-init script and bcryptjs for runtime
+COPY --from=builder /app/docker-init.js ./docker-init.js
+COPY --from=builder /app/node_modules/bcryptjs ./node_modules/bcryptjs
+
 # Create data directory
 RUN mkdir -p /app/data
 
@@ -79,5 +83,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))" || exit 1
 
-# Startup: push DB schema then start server
-CMD ["sh", "-c", "mkdir -p /app/data && npx prisma db push --skip-generate 2>/dev/null || true && exec node server.js"]
+# Startup: run auto-init (creates super admin if no users exist) then start server
+CMD ["sh", "-c", "mkdir -p /app/data && node docker-init.js && exec node server.js"]
