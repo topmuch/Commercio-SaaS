@@ -14,10 +14,10 @@ import { updateProductStock } from '@/lib/products'
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { productId: string } }
+  { params }: { params: Promise<{ productId: string }> }
 ) {
   try {
-    const { productId } = params
+    const { productId } = await params
     const body = await request.json()
     const { quantity, movementType, reason } = body
 

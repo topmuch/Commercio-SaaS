@@ -6,10 +6,10 @@ import { getInvoicePaymentHistory } from '@/lib/payments'
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { invoiceId: string } }
+  { params }: { params: Promise<{ invoiceId: string }> }
 ) {
   try {
-    const { invoiceId } = params
+    const { invoiceId } = await params
 
     // Get company ID from header
     const companyId = request.headers.get('x-company-id')

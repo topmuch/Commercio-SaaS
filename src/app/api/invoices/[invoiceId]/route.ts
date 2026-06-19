@@ -16,7 +16,7 @@ export async function GET(
   try {
     const session = await getAuthSession();
 
-    if (!session?.user?.companyId) {
+    if (!(session as any)?.user?.companyId) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -25,7 +25,7 @@ export async function GET(
 
     const { invoiceId } = await params;
 
-    const result = await getInvoiceById(invoiceId, session.user.companyId);
+    const result = await getInvoiceById(invoiceId, (session as any).user.companyId);
 
     if (result.success) {
       return NextResponse.json(result);
@@ -52,7 +52,7 @@ export async function PATCH(
   try {
     const session = await getAuthSession();
 
-    if (!session?.user?.companyId) {
+    if (!(session as any)?.user?.companyId) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -63,7 +63,7 @@ export async function PATCH(
     const body = await request.json();
     const { notes, dueDate } = body;
 
-    const result = await updateInvoiceDetails(invoiceId, session.user.companyId, {
+    const result = await updateInvoiceDetails(invoiceId, (session as any).user.companyId, {
       notes,
       dueDate: dueDate ? new Date(dueDate) : undefined,
     });
@@ -92,7 +92,7 @@ export async function DELETE(
   try {
     const session = await getAuthSession();
 
-    if (!session?.user?.companyId) {
+    if (!(session as any)?.user?.companyId) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -101,7 +101,7 @@ export async function DELETE(
 
     const { invoiceId } = await params;
 
-    const result = await deleteInvoice(invoiceId, session.user.companyId);
+    const result = await deleteInvoice(invoiceId, (session as any).user.companyId);
 
     if (result.success) {
       return NextResponse.json(result);

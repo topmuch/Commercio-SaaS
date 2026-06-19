@@ -104,8 +104,8 @@ export async function POST(request: Request) {
     // Créer l'abonnement
     const planConfig = PLANS[selectedPlan as keyof typeof PLANS]
     const now = new Date()
-    let endDate = null
-    let trialEndDate = null
+    let endDate: Date | null = null
+    let trialEndDate: Date | null = null
 
     // Si plan payant avec essai
     if (planConfig.trialDays > 0) {

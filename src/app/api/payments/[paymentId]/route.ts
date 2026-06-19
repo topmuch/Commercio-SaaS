@@ -12,10 +12,10 @@ import {
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { paymentId: string } }
+  { params }: { params: Promise<{ paymentId: string }> }
 ) {
   try {
-    const { paymentId } = params
+    const { paymentId } = await params
 
     // Get company ID from header
     const companyId = request.headers.get('x-company-id')
@@ -42,10 +42,10 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { paymentId: string } }
+  { params }: { params: Promise<{ paymentId: string }> }
 ) {
   try {
-    const { paymentId } = params
+    const { paymentId } = await params
 
     // Get company ID from header
     const companyId = request.headers.get('x-company-id')
@@ -90,10 +90,10 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { paymentId: string } }
+  { params }: { params: Promise<{ paymentId: string }> }
 ) {
   try {
-    const { paymentId } = params
+    const { paymentId } = await params
 
     // Get company ID from header
     const companyId = request.headers.get('x-company-id')

@@ -16,10 +16,10 @@ import { toggleSuperAdminStatus } from '@/lib/super-admin'
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
-    const { userId } = params
+    const { userId } = await params
     const body = await request.json()
     const { active } = body
 

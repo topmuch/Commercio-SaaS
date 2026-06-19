@@ -87,7 +87,7 @@ export function validatePasswordMin(password: string): PasswordValidationResult 
 /**
  * Generate a secure random token for password reset
  */
-export function generateResetToken(): string {
+export function generateResetToken(): { token: string; hashedToken: string } {
   const token = randomBytes(32).toString('hex')
   // Hash the token for storage
   const hashedToken = createHash('sha256').update(token).digest('hex')

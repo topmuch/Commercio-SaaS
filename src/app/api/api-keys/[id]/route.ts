@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 // PATCH /api/api-keys/[id] - Update an API key
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getAuthSession()
@@ -14,7 +14,7 @@ export async function PATCH(
     }
 
     const companyId = await getCompanyId()
-    const { id } = params
+    const { id } = await params
     const body = await request.json()
 
     // Verify the key belongs to the company
@@ -64,7 +64,7 @@ export async function PATCH(
 // DELETE /api/api-keys/[id] - Delete an API key
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getAuthSession()
@@ -73,7 +73,7 @@ export async function DELETE(
     }
 
     const companyId = await getCompanyId()
-    const { id } = params
+    const { id } = await params
 
     // Verify the key belongs to the company
     const existingKey = await db.apiKey.findFirst({

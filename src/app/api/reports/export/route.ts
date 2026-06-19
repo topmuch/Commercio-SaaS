@@ -104,19 +104,24 @@ export async function POST(request: NextRequest) {
           include: {
             orderItems: {
               include: {
-                order: {
-                  where: { createdAt: { gte: start, lte: end } },
-                },
+                order: true,
               },
             },
           },
         })
 
-        const productsWithStats = products.map(product => ({
-          ...product,
-          totalSold: product.orderItems.reduce((sum, item) => sum + item.quantity, 0),
-          totalRevenue: product.orderItems.reduce((sum, item) => sum + item.totalPrice, 0),
-        }))
+        const productsWithStats = products.map(product => {
+          // Filter orderItems by date
+          const filteredOrderItems = product.orderItems.filter(
+            item => item.order.createdAt >= start && item.order.createdAt <= end
+          )
+
+          return {
+            ...product,
+            totalSold: filteredOrderItems.reduce((sum, item) => sum + item.quantity, 0),
+            totalRevenue: filteredOrderItems.reduce((sum, item) => sum + item.totalPrice, 0),
+          }
+        })
 
         data = {
           period: { start, end },

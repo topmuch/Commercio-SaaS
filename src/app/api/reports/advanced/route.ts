@@ -169,7 +169,6 @@ export async function GET(request: NextRequest) {
       where: {
         companyId,
         status: 'paid',
-        paidAt: { not: null },
       },
       _avg: {
         // Calculer la différence entre paidAt et createdAt (en jours)

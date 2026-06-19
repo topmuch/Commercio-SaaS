@@ -1,4 +1,3 @@
-'use server'
 
 import { db } from '@/lib/db'
 import { getCompanyId } from '@/lib/auth'
@@ -51,7 +50,7 @@ export type ProductResult<T = any> = {
 /**
  * Validate product data
  */
-export async function validateProductData(data: ProductData): { valid: boolean; errors: string[] } {
+export function validateProductData(data: ProductData): { valid: boolean; errors: string[] } {
   const errors: string[] = []
 
   // Name validation

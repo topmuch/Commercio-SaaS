@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getAuthSession();
 
-    if (!session?.user?.companyId) {
+    if (!(session as any)?.user?.companyId) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -41,13 +41,13 @@ export async function GET(request: NextRequest) {
 
     // Check if statistics requested
     if (searchParams.get('stats') === 'true') {
-      const result = await getInvoiceStatistics(session.user.companyId);
+      const result = await getInvoiceStatistics((session as any).user.companyId);
       return NextResponse.json(result);
     }
 
     // Check if overdue invoices requested
     if (searchParams.get('overdue') === 'true') {
-      const result = await getOverdueInvoices(session.user.companyId);
+      const result = await getOverdueInvoices((session as any).user.companyId);
       return NextResponse.json(result);
     }
 
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
     const pageSize = parseInt(searchParams.get('pageSize') || '20', 10);
     const clientId = searchParams.get('clientId') || undefined;
     const commercialId = searchParams.get('commercialId') || undefined;
-    const status = searchParams.get('status') || undefined;
+    const status = (searchParams.get('status') as 'unpaid' | 'partially_paid' | 'paid' | 'overdue' | undefined) || undefined;
     const minDateStr = searchParams.get('minDate');
     const maxDateStr = searchParams.get('maxDate');
     const minTotal = searchParams.get('minTotal')
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
     const minDate = minDateStr ? new Date(minDateStr) : undefined;
     const maxDate = maxDateStr ? new Date(maxDateStr) : undefined;
 
-    const result = await listInvoices(session.user.companyId, session.user.role, session.user.id, {
+    const result = await listInvoices((session as any).user.companyId, (session as any).user.role, (session as any).user.id, {
       page,
       pageSize,
       clientId,
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getAuthSession();
 
-    if (!session?.user?.companyId) {
+    if (!(session as any)?.user?.companyId) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -128,9 +128,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { clientId, commercialId, orderId, items, discount, tax, dueDate, notes } = body;
 
-    const result = await createInvoice(session.user.companyId, {
+    const result = await createInvoice((session as any).user.companyId, {
       clientId,
-      commercialId: commercialId || session.user.id,
+      commercialId: commercialId || (session as any).user.id,
       orderId,
       items,
       discount,

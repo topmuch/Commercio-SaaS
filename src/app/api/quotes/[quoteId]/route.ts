@@ -17,7 +17,7 @@ export async function GET(
   try {
     const session = await getAuthSession();
 
-    if (!session?.user?.companyId) {
+    if (!(session as any)?.user?.companyId) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -26,7 +26,7 @@ export async function GET(
 
     const { quoteId } = await params;
 
-    const result = await getQuoteById(quoteId, session.user.companyId);
+    const result = await getQuoteById(quoteId, (session as any).user.companyId);
 
     if (result.success) {
       return NextResponse.json(result);
@@ -53,7 +53,7 @@ export async function PATCH(
   try {
     const session = await getAuthSession();
 
-    if (!session?.user?.companyId) {
+    if (!(session as any)?.user?.companyId) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -68,7 +68,7 @@ export async function PATCH(
     if (status) {
       const result = await updateQuoteStatus(
         quoteId,
-        session.user.companyId,
+        (session as any).user.companyId,
         status
       );
 
@@ -81,7 +81,7 @@ export async function PATCH(
 
     // Update notes if provided
     if (notes !== undefined) {
-      const result = await updateQuoteNotes(quoteId, session.user.companyId, notes);
+      const result = await updateQuoteNotes(quoteId, (session as any).user.companyId, notes);
 
       if (result.success) {
         return NextResponse.json(result);
@@ -114,7 +114,7 @@ export async function DELETE(
   try {
     const session = await getAuthSession();
 
-    if (!session?.user?.companyId) {
+    if (!(session as any)?.user?.companyId) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -123,7 +123,7 @@ export async function DELETE(
 
     const { quoteId } = await params;
 
-    const result = await deleteQuote(quoteId, session.user.companyId);
+    const result = await deleteQuote(quoteId, (session as any).user.companyId);
 
     if (result.success) {
       return NextResponse.json(result);

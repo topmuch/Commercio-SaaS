@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getAuthSession();
 
-    if (!session?.user?.companyId) {
+    if (!(session as any)?.user?.companyId) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -36,13 +36,13 @@ export async function GET(request: NextRequest) {
 
     // Check if statistics requested
     if (searchParams.get('stats') === 'true') {
-      const result = await getCategoryStatistics(session.user.companyId);
+      const result = await getCategoryStatistics((session as any).user.companyId);
       return NextResponse.json(result);
     }
 
     // Check if tree requested
     if (searchParams.get('tree') === 'true') {
-      const result = await getCategoryTree(session.user.companyId);
+      const result = await getCategoryTree((session as any).user.companyId);
       return NextResponse.json(result);
     }
 
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     if (searchQuery) {
       const limit = parseInt(searchParams.get('limit') || '10', 10);
       const result = await searchCategories(
-        session.user.companyId,
+        (session as any).user.companyId,
         searchQuery,
         limit
       );
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
     const sortOrder =
       (searchParams.get('sortOrder') as 'asc' | 'desc') || 'asc';
 
-    const result = await listCategories(session.user.companyId, {
+    const result = await listCategories((session as any).user.companyId, {
       page,
       pageSize,
       parentId,
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getAuthSession();
 
-    if (!session?.user?.companyId) {
+    if (!(session as any)?.user?.companyId) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, parentId, image } = body;
 
-    const result = await createCategory(session.user.companyId, {
+    const result = await createCategory((session as any).user.companyId, {
       name,
       parentId,
       image,

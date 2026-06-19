@@ -1,4 +1,3 @@
-'use server';
 
 import { db } from '@/lib/db';
 import { Prisma } from '@prisma/client';
@@ -48,7 +47,7 @@ export type QuoteListOptions = {
 
 // ===== VALIDATION =====
 
-export async function validateQuoteItem(item: QuoteItemInput): { valid: boolean; errors: string[] } {
+export function validateQuoteItem(item: QuoteItemInput): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
   // Product ID
@@ -85,7 +84,7 @@ export async function validateQuoteItem(item: QuoteItemInput): { valid: boolean;
   };
 }
 
-export async function validateQuoteData(data: QuoteCreateInput): { valid: boolean; errors: string[] } {
+export function validateQuoteData(data: QuoteCreateInput): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
   // Client ID
@@ -98,7 +97,7 @@ export async function validateQuoteData(data: QuoteCreateInput): { valid: boolea
     errors.push('At least one item is required');
   } else {
     for (const [index, item] of data.items.entries()) {
-      const itemValidation = await validateQuoteItem(item);
+      const itemValidation = validateQuoteItem(item);
       if (!itemValidation.valid) {
         errors.push(`Item ${index + 1}: ${itemValidation.errors.join(', ')}`);
       }
@@ -179,7 +178,7 @@ export async function calculateQuoteTotals(
   items: QuoteItemInput[],
   discount?: number,
   tax?: number
-): { subtotal: number; total: number } {
+): Promise<{ subtotal: number; total: number }> {
   const subtotal = items.reduce(
     (sum, item) => sum + item.quantity * item.unitPrice - (item.discount || 0),
     0
@@ -196,7 +195,7 @@ export async function calculateQuoteTotals(
 export async function createQuote(companyId: string, data: QuoteCreateInput) {
   try {
     // Validate data
-    const validation = await validateQuoteData(data);
+    const validation = validateQuoteData(data);
     if (!validation.valid) {
       return {
         success: false,

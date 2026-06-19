@@ -121,6 +121,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (!verification.companyId) {
+      return NextResponse.json(
+        { error: 'Company ID introuvable' },
+        { status: 401 }
+      )
+    }
+
     const body = await request.json()
     const {
       companyName,

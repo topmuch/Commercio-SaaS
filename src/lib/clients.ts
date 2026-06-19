@@ -1,4 +1,3 @@
-'use server'
 
 import { db } from '@/lib/db'
 import { getAuthSession, getCompanyId } from '@/lib/auth'
@@ -53,7 +52,7 @@ export type ClientResult<T = any> = {
 /**
  * Validate client data
  */
-export async function validateClientData(data: ClientData): { valid: boolean; errors: string[] } {
+export function validateClientData(data: ClientData): { valid: boolean; errors: string[] } {
   const errors: string[] = []
 
   // Company name validation
@@ -131,10 +130,10 @@ export async function validateClientData(data: ClientData): { valid: boolean; er
   }
 
   // Latitude/longitude validation (optional)
-  if (data.latitude !== undefined && (data.latitude < -90 || data.latitude > 90)) {
+  if (data.latitude !== undefined && data.latitude !== null && (data.latitude < -90 || data.latitude > 90)) {
     errors.push('Latitude must be between -90 and 90')
   }
-  if (data.longitude !== undefined && (data.longitude < -180 || data.longitude > 180)) {
+  if (data.longitude !== undefined && data.longitude !== null && (data.longitude < -180 || data.longitude > 180)) {
     errors.push('Longitude must be between -180 and 180')
   }
 
@@ -152,7 +151,7 @@ export async function createClient(data: ClientData): Promise<ClientResult> {
     const companyId = await getCompanyId()
 
     // Validate client data
-    const validation = await validateClientData(data)
+    const validation = validateClientData(data)
     if (!validation.valid) {
       return {
         success: false,
@@ -447,7 +446,7 @@ export async function updateClient(clientId: string, data: Partial<ClientData>):
     const companyId = await getCompanyId()
 
     // Validate client data
-    const validation = await validateClientData(data as ClientData)
+    const validation = validateClientData(data as ClientData)
     if (!validation.valid) {
       return {
         success: false,

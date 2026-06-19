@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getAuthSession();
 
-    if (!session?.user?.companyId) {
+    if (!(session as any)?.user?.companyId) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -40,13 +40,13 @@ export async function GET(request: NextRequest) {
 
     // Check if statistics requested
     if (searchParams.get('stats') === 'true') {
-      const result = await getQuoteStatistics(session.user.companyId);
+      const result = await getQuoteStatistics((session as any).user.companyId);
       return NextResponse.json(result);
     }
 
     // Check if expired quotes requested
     if (searchParams.get('expired') === 'true') {
-      const result = await getExpiredQuotes(session.user.companyId);
+      const result = await getExpiredQuotes((session as any).user.companyId);
       return NextResponse.json(result);
     }
 
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     const pageSize = parseInt(searchParams.get('pageSize') || '20', 10);
     const clientId = searchParams.get('clientId') || undefined;
     const commercialId = searchParams.get('commercialId') || undefined;
-    const status = searchParams.get('status') || undefined;
+    const status = (searchParams.get('status') as 'draft' | 'sent' | 'accepted' | 'refused' | undefined) || undefined;
     const minDateStr = searchParams.get('minDate');
     const maxDateStr = searchParams.get('maxDate');
     const minTotal = searchParams.get('minTotal')
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
     const minDate = minDateStr ? new Date(minDateStr) : undefined;
     const maxDate = maxDateStr ? new Date(maxDateStr) : undefined;
 
-    const result = await listQuotes(session.user.companyId, session.user.role, session.user.id, {
+    const result = await listQuotes((session as any).user.companyId, (session as any).user.role, (session as any).user.id, {
       page,
       pageSize,
       clientId,
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getAuthSession();
 
-    if (!session?.user?.companyId) {
+    if (!(session as any)?.user?.companyId) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -124,9 +124,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { clientId, commercialId, items, discount, tax, notes, validUntil } = body;
 
-    const result = await createQuote(session.user.companyId, {
+    const result = await createQuote((session as any).user.companyId, {
       clientId,
-      commercialId: commercialId || session.user.id,
+      commercialId: commercialId || (session as any).user.id,
       items,
       discount,
       tax,

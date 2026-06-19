@@ -81,9 +81,9 @@ const memoryCache = new Map<string, MemoryCacheEntry>()
 /**
  * Get client IP address from headers
  */
-export function getClientIP(): string {
+export async function getClientIP(): Promise<string> {
   try {
-    const headersList = headers()
+    const headersList = await headers()
     const forwarded = headersList.get('x-forwarded-for')
     const realIP = headersList.get('x-real-ip')
 
@@ -483,7 +483,7 @@ export async function checkRateLimitForRequest(
   type: string,
   identifier?: string
 ): Promise<RateLimitResult> {
-  const id = identifier || getClientIP()
+  const id = identifier || await getClientIP()
 
   if (id === 'unknown') {
     // If we can't identify the request, allow it but log warning

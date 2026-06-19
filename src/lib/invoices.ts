@@ -1,4 +1,3 @@
-'use server';
 
 import { db } from '@/lib/db';
 import { Prisma } from '@prisma/client';
@@ -48,7 +47,7 @@ export type InvoiceListOptions = {
 
 // ===== VALIDATION =====
 
-export async function validateInvoiceItem(item: InvoiceItemInput): { valid: boolean; errors: string[] } {
+export function validateInvoiceItem(item: InvoiceItemInput): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
   // Product ID
@@ -85,7 +84,7 @@ export async function validateInvoiceItem(item: InvoiceItemInput): { valid: bool
   };
 }
 
-export async function validateInvoiceData(data: InvoiceCreateInput): { valid: boolean; errors: string[] } {
+export function validateInvoiceData(data: InvoiceCreateInput): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
   // Client ID
@@ -176,7 +175,7 @@ export async function calculateInvoiceTotals(
   items: InvoiceItemInput[],
   discount?: number,
   tax?: number
-): { subtotal: number; total: number } {
+): Promise<{ subtotal: number; total: number }> {
   const subtotal = items.reduce(
     (sum, item) => sum + item.quantity * item.unitPrice - (item.discount || 0),
     0
@@ -237,7 +236,7 @@ async function updateInvoicePaymentStatus(invoiceId: string) {
 export async function createInvoice(companyId: string, data: InvoiceCreateInput) {
   try {
     // Validate data
-    const validation = await validateInvoiceData(data);
+    const validation = validateInvoiceData(data);
     if (!validation.valid) {
       return {
         success: false,

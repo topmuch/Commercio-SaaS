@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 
 // POST /api/saas/admin/companies - Create a new company

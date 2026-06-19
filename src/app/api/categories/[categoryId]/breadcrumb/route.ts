@@ -12,9 +12,12 @@ export async function GET(
   try {
     const session = await getAuthSession();
 
-    if (!session?.user?.companyId) {
+    // Extract companyId from session (depending on auth implementation)
+    const companyId = (session as any)?.user?.companyId || request.headers.get('x-company-id');
+
+    if (!companyId) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
+        { success: false, error: 'Unauthorized - No company found' },
         { status: 401 }
       );
     }

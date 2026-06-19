@@ -166,7 +166,7 @@ export async function checkSubscriptionStatus(): Promise<{
       ? Math.ceil((subscription.trialEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
       : 0
     const subscriptionEndDate = subscription.endDate
-    const isExpired = subscription.endDate && subscription.endDate < now
+    const isExpired = !!(subscription.endDate && subscription.endDate < now)
     const isFreePlan = subscription.plan === 'starter'
 
     return {

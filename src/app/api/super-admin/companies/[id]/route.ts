@@ -4,15 +4,16 @@ import { db } from '@/lib/db'
 // PATCH - Update company status or details
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const body = await request.json()
     const { status, plan, phone, whatsapp, address, name, logo } = body
 
     // Check if company exists
     const company = await db.company.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!company) {
@@ -34,14 +35,14 @@ export async function PATCH(
 
     // Update company
     const updatedCompany = await db.company.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
     })
 
     // If suspending or deactivating, also deactivate all users
     if (status === 'suspended') {
       await db.user.updateMany({
-        where: { companyId: params.id },
+        where: { companyId: id },
         data: { active: false },
       })
     }
@@ -50,7 +51,7 @@ export async function PATCH(
     if (status === 'active') {
       await db.user.updateMany({
         where: {
-          companyId: params.id,
+          companyId: id,
           role: 'admin',
         },
         data: { active: true },
@@ -84,12 +85,14 @@ export async function PATCH(
 // DELETE - Delete a company (soft delete)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
+
     // Check if company exists
     const company = await db.company.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!company) {
@@ -101,13 +104,13 @@ export async function DELETE(
 
     // Soft delete by setting status to 'deleted'
     await db.company.update({
-      where: { id: params.id },
+      where: { id },
       data: { status: 'deleted' },
     })
 
     // Deactivate all users
     await db.user.updateMany({
-      where: { companyId: params.id },
+      where: { companyId: id },
       data: { active: false },
     })
 

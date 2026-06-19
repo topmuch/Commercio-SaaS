@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getAuthSession } from '@/lib/auth'
 import { regenerateBackupCodes, getRemainingBackupCodesCount } from '@/lib/two-factor'
 

@@ -4,12 +4,12 @@ import { NextRequest, NextResponse } from 'next/server'
 // PATCH /api/saas/admin/companies/[id] - Suspend/Activate/Delete company
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const body = await request.json()
     const { action } = body
-    const { id } = params
+    const { id } = await params
 
     if (!action) {
       return NextResponse.json({ error: 'Action requise' }, { status: 400 })
@@ -58,10 +58,10 @@ export async function PATCH(
 // DELETE /api/saas/admin/companies/[id] - Delete a company
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params
+    const { id } = await params
 
     const company = await db.company.findUnique({
       where: { id },

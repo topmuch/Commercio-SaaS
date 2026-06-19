@@ -1,5 +1,3 @@
-'use server';
-
 import { db } from '@/lib/db';
 import { Prisma } from '@prisma/client';
 import crypto from 'crypto';
@@ -40,7 +38,7 @@ export interface CategoryWithChildren {
 }
 
 // ===== VALIDATION =====
-export async function validateCategoryData(data: CategoryCreateInput): { valid: boolean; errors: string[] } {
+export function validateCategoryData(data: CategoryCreateInput): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
   // Name validation
@@ -69,7 +67,7 @@ export async function validateCategoryData(data: CategoryCreateInput): { valid: 
 export async function createCategory(companyId: string, data: CategoryCreateInput) {
   try {
     // Validate data
-    const validation = await validateCategoryData(data);
+    const validation = validateCategoryData(data);
     if (!validation.valid) {
       return {
         success: false,
@@ -348,7 +346,7 @@ export async function updateCategory(
   try {
     // Validate data if name is provided
     if (data.name !== undefined) {
-      const validation = await validateCategoryData({
+      const validation = validateCategoryData({
         name: data.name,
         parentId: data.parentId,
         image: data.image,
@@ -535,7 +533,7 @@ export async function moveCategory(
   companyId: string,
   newParentId: string | null
 ) {
-  return updateCategory(categoryId, companyId, { parentId: newParentId });
+  return updateCategory(categoryId, companyId, { parentId: newParentId || undefined });
 }
 
 // ===== CATEGORY STATISTICS =====

@@ -43,6 +43,8 @@
     "skills",
     "agent-ctx",
     "download",
-    ".github"
+    ".github",
+    "scripts",
+    "src/app/api/ai"
   ]
 }

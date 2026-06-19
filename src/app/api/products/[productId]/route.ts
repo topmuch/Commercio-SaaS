@@ -12,10 +12,10 @@ import {
  */
 export async function GET(
   request: Request,
-  { params }: { params: { productId: string } }
+  { params }: { params: Promise<{ productId: string }> }
 ) {
   try {
-    const { productId } = params
+    const { productId } = await params
     const result = await getProductById(productId)
 
     if (result.success) {
@@ -43,10 +43,10 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { productId: string } }
+  { params }: { params: Promise<{ productId: string }> }
 ) {
   try {
-    const { productId } = params
+    const { productId } = await params
     const body = await request.json()
     const result = await updateProduct(productId, body)
 
@@ -73,10 +73,10 @@ export async function PATCH(
  */
 export async function DELETE(
   request: Request,
-  { params }: { params: { productId: string } }
+  { params }: { params: Promise<{ productId: string }> }
 ) {
   try {
-    const { productId } = params
+    const { productId } = await params
     const result = await deleteProduct(productId)
 
     if (result.success) {

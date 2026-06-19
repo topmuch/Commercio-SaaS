@@ -16,7 +16,7 @@ export async function GET(
   try {
     const session = await getAuthSession();
 
-    if (!session?.user?.companyId) {
+    if (!(session as any)?.user?.companyId) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -25,7 +25,7 @@ export async function GET(
 
     const { categoryId } = await params;
 
-    const result = await getCategoryById(categoryId, session.user.companyId);
+    const result = await getCategoryById(categoryId, (session as any).user.companyId);
 
     if (result.success) {
       return NextResponse.json(result);
@@ -52,7 +52,7 @@ export async function PATCH(
   try {
     const session = await getAuthSession();
 
-    if (!session?.user?.companyId) {
+    if (!(session as any)?.user?.companyId) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -63,7 +63,7 @@ export async function PATCH(
     const body = await request.json();
     const { name, parentId, image } = body;
 
-    const result = await updateCategory(categoryId, session.user.companyId, {
+    const result = await updateCategory(categoryId, (session as any).user.companyId, {
       name,
       parentId,
       image,
@@ -93,7 +93,7 @@ export async function DELETE(
   try {
     const session = await getAuthSession();
 
-    if (!session?.user?.companyId) {
+    if (!(session as any)?.user?.companyId) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -102,7 +102,7 @@ export async function DELETE(
 
     const { categoryId } = await params;
 
-    const result = await deleteCategory(categoryId, session.user.companyId);
+    const result = await deleteCategory(categoryId, (session as any).user.companyId);
 
     if (result.success) {
       return NextResponse.json(result);

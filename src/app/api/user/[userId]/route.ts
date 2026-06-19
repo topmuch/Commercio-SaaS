@@ -9,10 +9,10 @@ import { getUserById } from '@/lib/user-profile'
  */
 export async function GET(
   request: Request,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
-    const { userId } = params
+    const { userId } = await params
 
     const result = await getUserById(userId)
 

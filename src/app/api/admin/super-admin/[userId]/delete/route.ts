@@ -11,10 +11,10 @@ import { deleteSuperAdmin } from '@/lib/super-admin'
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
-    const { userId } = params
+    const { userId } = await params
 
     // Delete the super admin user
     const result = await deleteSuperAdmin(userId)

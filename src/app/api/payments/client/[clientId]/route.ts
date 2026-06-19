@@ -6,10 +6,10 @@ import { getClientPaymentHistory } from '@/lib/payments'
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { clientId: string } }
+  { params }: { params: Promise<{ clientId: string }> }
 ) {
   try {
-    const { clientId } = params
+    const { clientId } = await params
 
     // Get company ID from header
     const companyId = request.headers.get('x-company-id')

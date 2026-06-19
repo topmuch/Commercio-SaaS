@@ -7,10 +7,10 @@ import { getClientById, updateClient, deleteClient } from '@/lib/clients'
  */
 export async function GET(
   request: Request,
-  { params }: { params: { clientId: string } }
+  { params }: { params: Promise<{ clientId: string }> }
 ) {
   try {
-    const { clientId } = params
+    const { clientId } = await params
     const result = await getClientById(clientId)
 
     if (result.success) {
@@ -38,10 +38,10 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { clientId: string } }
+  { params }: { params: Promise<{ clientId: string }> }
 ) {
   try {
-    const { clientId } = params
+    const { clientId } = await params
     const body = await request.json()
     const result = await updateClient(clientId, body)
 
@@ -68,10 +68,10 @@ export async function PATCH(
  */
 export async function DELETE(
   request: Request,
-  { params }: { params: { clientId: string } }
+  { params }: { params: Promise<{ clientId: string }> }
 ) {
   try {
-    const { clientId } = params
+    const { clientId } = await params
     const result = await deleteClient(clientId)
 
     if (result.success) {
