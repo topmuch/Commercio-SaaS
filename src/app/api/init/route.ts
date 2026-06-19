@@ -1,7 +1,6 @@
 import { db } from '@/lib/db'
 import { hashPassword } from '@/lib/auth'
 import { NextResponse } from 'next/server'
-import bcrypt from 'bcryptjs'
 
 const DEFAULTS = {
   superAdminEmail: process.env.INIT_SUPERADMIN_EMAIL || 'admin@terangabiz.com',
@@ -15,21 +14,47 @@ const DEFAULTS = {
 
 export async function POST() {
   try {
-    // Check if super admin already exists
+    // 1. Check if super admin already exists
     const superAdminCount = await db.user.count({ where: { role: 'super_admin' } })
 
     if (superAdminCount > 0) {
+      const sa = await db.user.findFirst({ where: { role: 'super_admin' }, select: { email: true, name: true } })
       return NextResponse.json({
         success: false,
-        message: `Already has ${superAdminCount} super admin(s). Cannot create more via init.`,
+        message: `Super admin already exists: ${sa?.email}`,
         alreadyInitialized: true,
-        superAdminCount,
       })
     }
 
-    // Get or create company
-    let company = await db.company.findFirst()
+    // 2. Find any existing admin user to promote
+    const existingAdmin = await db.user.findFirst({
+      where: { role: { in: ['admin', 'director', 'commercial'] } },
+      select: { id: true, email: true, name: true, companyId: true, phone: true },
+    })
 
+    if (existingAdmin) {
+      // Promote existing user to super_admin
+      await db.user.update({
+        where: { id: existingAdmin.id },
+        data: { role: 'super_admin' },
+      })
+
+      console.log(`[init] Promoted ${existingAdmin.email} to super_admin`)
+
+      return NextResponse.json({
+        success: true,
+        message: `User ${existingAdmin.email} promoted to super admin.`,
+        superAdmin: {
+          email: existingAdmin.email,
+          name: existingAdmin.name,
+          role: 'super_admin',
+        },
+        info: `Login with email: ${existingAdmin.email} and your existing password.`,
+      })
+    }
+
+    // 3. No users at all — create company + super admin from scratch
+    let company = await db.company.findFirst()
     if (!company) {
       company = await db.company.create({
         data: {
@@ -43,10 +68,8 @@ export async function POST() {
       })
     }
 
-    // Hash password
     const hashedPassword = await hashPassword(DEFAULTS.defaultPassword)
 
-    // Create super admin
     const superAdmin = await db.user.create({
       data: {
         email: DEFAULTS.superAdminEmail,
@@ -57,35 +80,26 @@ export async function POST() {
         active: true,
         companyId: company.id,
       },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-      },
+      select: { id: true, email: true, name: true, role: true },
     })
 
     console.log(`[init] Super admin created: ${superAdmin.email}`)
 
     return NextResponse.json({
       success: true,
-      message: 'Super admin created successfully.',
-      superAdmin: {
-        email: superAdmin.email,
-        name: superAdmin.name,
-        role: superAdmin.role,
-      },
+      message: 'Super admin created.',
+      superAdmin,
       credentials: {
         email: DEFAULTS.superAdminEmail,
         password: DEFAULTS.defaultPassword,
       },
-      warning: 'CHANGE THIS PASSWORD IMMEDIATELY after first login!',
+      warning: 'CHANGE THIS PASSWORD IMMEDIATELY!',
     })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error'
     console.error('[init] Error:', message)
     return NextResponse.json(
-      { success: false, message: `Initialization failed: ${message}` },
+      { success: false, message: `Init failed: ${message}` },
       { status: 500 }
     )
   }
@@ -93,26 +107,19 @@ export async function POST() {
 
 export async function GET() {
   try {
-    const userCount = await db.user.count()
-    const companyCount = await db.company.count()
+    const users = await db.user.findMany({
+      select: { id: true, email: true, name: true, role: true, active: true },
+      take: 20,
+    })
     const superAdminCount = await db.user.count({ where: { role: 'super_admin' } })
 
     return NextResponse.json({
-      initialized: superAdminCount > 0,
-      stats: {
-        users: userCount,
-        companies: companyCount,
-        superAdmins: superAdminCount,
-      },
-      defaults: {
-        email: DEFAULTS.superAdminEmail,
-        companyName: DEFAULTS.companyName,
-      },
+      hasSuperAdmin: superAdminCount > 0,
+      superAdminCount,
+      totalUsers: users.length,
+      users: users.map(u => ({ email: u.email, name: u.name, role: u.role, active: u.active })),
     })
   } catch {
-    return NextResponse.json(
-      { initialized: false, error: 'Cannot connect to database' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'DB error' }, { status: 500 })
   }
 }
