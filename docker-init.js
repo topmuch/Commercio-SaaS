@@ -1,16 +1,3 @@
-/**
- * docker-init.js — Auto-initialization for Docker containers
- *
- * Runs at container startup:
- *   1. Pushes Prisma schema to database
- *   2. Creates default company + super admin if no users exist
- *
- * Configurable via env vars:
- *   INIT_SUPERADMIN_EMAIL, INIT_SUPERADMIN_NAME, INIT_SUPERADMIN_PHONE
- *   INIT_COMPANY_NAME, INIT_COMPANY_EMAIL, INIT_COMPANY_PHONE
- *   INIT_DEFAULT_PASSWORD
- */
-
 const { execSync } = require('child_process')
 
 const DEFAULTS = {
@@ -36,7 +23,7 @@ async function main() {
         stdio: 'pipe',
         timeout: 60000,
       })
-      log('Schema pushed OK.')
+      log('Schema pushed.')
     } catch (_) {
       log('Schema push completed (warnings OK).')
     }
@@ -49,7 +36,7 @@ async function main() {
       try {
         PrismaClient = require('@prisma/client').PrismaClient
       } catch (__) {
-        log('WARNING: Cannot load Prisma client. Skipping user init.')
+        log('WARNING: Cannot load Prisma client. Skipping init.')
         return
       }
     }
@@ -57,41 +44,48 @@ async function main() {
     const db = new PrismaClient()
 
     try {
-      const userCount = await db.user.count()
+      // 3. Check if super admin already exists
+      const superAdminCount = await db.user.count({ where: { role: 'super_admin' } })
 
-      if (userCount > 0) {
-        log(`DB has ${userCount} user(s). Init skipped.`)
+      if (superAdminCount > 0) {
+        log(`Has ${superAdminCount} super admin(s). Init skipped.`)
         return
       }
 
-      log('Empty database. Creating company + super admin...')
+      log('No super admin found. Creating one...')
 
-      // 3. Create company
-      const company = await db.company.upsert({
-        where: { email: DEFAULTS.companyEmail },
-        update: {},
-        create: {
-          id: 'comp_default',
-          name: DEFAULTS.companyName,
-          email: DEFAULTS.companyEmail,
-          phone: DEFAULTS.companyPhone,
-          plan: 'enterprise',
-          status: 'active',
-        },
-      })
+      // 4. Get or create company
+      let company = await db.company.findFirst()
+      if (!company) {
+        company = await db.company.create({
+          data: {
+            id: 'comp_default',
+            name: DEFAULTS.companyName,
+            email: DEFAULTS.companyEmail,
+            phone: DEFAULTS.companyPhone,
+            plan: 'enterprise',
+            status: 'active',
+          },
+        })
+      }
 
-      log(`Company: ${company.name}`)
+      log(`Company: ${company.name} (${company.id})`)
 
-      // 4. Hash password
+      // 5. Hash password
       let bcrypt
       try {
         bcrypt = require('./node_modules/bcryptjs')
       } catch (_) {
-        bcrypt = require('bcryptjs')
+        try {
+          bcrypt = require('bcryptjs')
+        } catch (__) {
+          log('WARNING: Cannot load bcryptjs. Skipping init.')
+          return
+        }
       }
       const hashedPassword = await bcrypt.hash(DEFAULTS.defaultPassword, 12)
 
-      // 5. Create super admin
+      // 6. Create super admin
       await db.user.create({
         data: {
           email: DEFAULTS.superAdminEmail,
@@ -105,6 +99,7 @@ async function main() {
       })
 
       log('==========================================')
+      log(`  Super admin created!`)
       log(`  EMAIL:    ${DEFAULTS.superAdminEmail}`)
       log(`  PASSWORD: ${DEFAULTS.defaultPassword}`)
       log(`  CHANGE THIS PASSWORD IMMEDIATELY!`)
@@ -116,7 +111,6 @@ async function main() {
     log('Init complete.')
   } catch (error) {
     console.error(`[docker-init] Error: ${error.message}`)
-    // Don't block server startup
     process.exitCode = 0
   }
 }

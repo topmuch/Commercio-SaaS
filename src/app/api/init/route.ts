@@ -15,33 +15,33 @@ const DEFAULTS = {
 
 export async function POST() {
   try {
-    // Check if users already exist
-    const userCount = await db.user.count()
+    // Check if super admin already exists
+    const superAdminCount = await db.user.count({ where: { role: 'super_admin' } })
 
-    if (userCount > 0) {
+    if (superAdminCount > 0) {
       return NextResponse.json({
         success: false,
-        message: `Database already has ${userCount} user(s). Auto-init only works when no users exist.`,
+        message: `Already has ${superAdminCount} super admin(s). Cannot create more via init.`,
         alreadyInitialized: true,
-        userCount,
+        superAdminCount,
       })
     }
 
-    // Create default company
-    const companyId = 'comp_default'
+    // Get or create company
+    let company = await db.company.findFirst()
 
-    const company = await db.company.upsert({
-      where: { email: DEFAULTS.companyEmail },
-      update: {},
-      create: {
-        id: companyId,
-        name: DEFAULTS.companyName,
-        email: DEFAULTS.companyEmail,
-        phone: DEFAULTS.companyPhone,
-        plan: 'enterprise',
-        status: 'active',
-      },
-    })
+    if (!company) {
+      company = await db.company.create({
+        data: {
+          id: 'comp_default',
+          name: DEFAULTS.companyName,
+          email: DEFAULTS.companyEmail,
+          phone: DEFAULTS.companyPhone,
+          plan: 'enterprise',
+          status: 'active',
+        },
+      })
+    }
 
     // Hash password
     const hashedPassword = await hashPassword(DEFAULTS.defaultPassword)
@@ -69,11 +69,7 @@ export async function POST() {
 
     return NextResponse.json({
       success: true,
-      message: 'System initialized successfully.',
-      company: {
-        id: company.id,
-        name: company.name,
-      },
+      message: 'Super admin created successfully.',
       superAdmin: {
         email: superAdmin.email,
         name: superAdmin.name,
@@ -102,7 +98,7 @@ export async function GET() {
     const superAdminCount = await db.user.count({ where: { role: 'super_admin' } })
 
     return NextResponse.json({
-      initialized: userCount > 0,
+      initialized: superAdminCount > 0,
       stats: {
         users: userCount,
         companies: companyCount,
