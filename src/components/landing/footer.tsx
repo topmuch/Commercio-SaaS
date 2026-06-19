@@ -5,7 +5,7 @@ import { Facebook, Linkedin, Twitter } from 'lucide-react';
 const productLinks = [
   { label: 'Fonctionnalités', href: '#features' },
   { label: 'Tarifs', href: '#pricing' },
-  { label: 'Accéder à l\'application', href: '/dashboard' },
+  { label: 'Se connecter', href: '/login' },
   { label: 'Installer l\'App Mobile', href: '/install-app' },
 ];
 // TODO: Create dedicated pages for À propos, Blog, Carrières
