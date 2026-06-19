@@ -1,10 +1,9 @@
 # ============================================
 # Teranga Biz (Commercio) - Dockerfile for Coolify
-# Multi-stage build for optimal image size
 # ============================================
 
 # ---- Stage 1: Builder ----
-FROM node:20 AS builder
+FROM node:22-slim AS builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -13,7 +12,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     make \
     g++ \
-    libvips-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install bun
@@ -24,36 +22,36 @@ WORKDIR /app
 # Clone the repository
 RUN git clone https://github.com/topmuch/Commercio-SaaS.git .
 
-# Install ALL dependencies (dev + prod) — NODE_ENV must NOT be set yet
-RUN bun install --frozen-lockfile || bun install
+# Install ALL dependencies (dev + prod)
+RUN bun install
 
 # Generate Prisma Client
 RUN npx prisma generate
 
-# Set env for build
+# Build environment
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV DATABASE_URL="file:/app/data/commercio.db"
 ENV NODE_ENV=production
+ENV NODE_OPTIONS=--max-old-space-size=4096
 
-# Build Next.js (standalone output)
+# Build Next.js standalone
 RUN npx next build
 
-# Copy standalone output pieces
-RUN cp -r .next/static .next/standalone/.next/ 2>/dev/null || true \
-    && cp -r public .next/standalone/ 2>/dev/null || true
+# Copy output pieces into standalone
+RUN cp -r .next/static .next/standalone/.next/ 2>/dev/null; \
+    cp -r public .next/standalone/ 2>/dev/null; \
+    true
 
 # ---- Stage 2: Runner ----
-FROM node:20-slim AS runner
+FROM node:22-slim AS runner
 
-# Install runtime dependencies only
 RUN apt-get update && apt-get install -y --no-install-recommends \
     sqlite3 \
-    libvips42 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy standalone build from builder
+# Copy standalone output
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
@@ -64,11 +62,10 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 
-# Copy auto-init script and bcryptjs for runtime
+# Copy init script + bcryptjs
 COPY --from=builder /app/docker-init.js ./docker-init.js
 COPY --from=builder /app/node_modules/bcryptjs ./node_modules/bcryptjs
 
-# Create data directory
 RUN mkdir -p /app/data
 
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -79,9 +76,7 @@ ENV DATABASE_URL="file:/app/data/commercio.db"
 
 EXPOSE 3000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))" || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"
 
-# Startup: run auto-init (creates super admin if no users exist) then start server
 CMD ["sh", "-c", "mkdir -p /app/data && node docker-init.js && exec node server.js"]

@@ -1,26 +1,18 @@
 /**
- * docker-init.js — Auto-initialization script for Docker containers
+ * docker-init.js — Auto-initialization for Docker containers
  *
- * This script runs at container startup to ensure the database is ready
- * and a super admin user exists. It:
- *   1. Pushes Prisma schema to the database
- *   2. Creates a default company if none exists
- *   3. Creates a super admin user if no users exist
+ * Runs at container startup:
+ *   1. Pushes Prisma schema to database
+ *   2. Creates default company + super admin if no users exist
  *
- * Environment variables:
- *   - INIT_SUPERADMIN_EMAIL  (default: "admin@terangabiz.com")
- *   - INIT_SUPERADMIN_NAME   (default: "Super Administrateur")
- *   - INIT_SUPERADMIN_PHONE  (default: "+221 77 000 00 00")
- *   - INIT_COMPANY_NAME      (default: "Teranga Biz")
- *   - INIT_COMPANY_EMAIL      (default: "contact@terangabiz.com")
- *   - INIT_COMPANY_PHONE      (default: "+221 33 800 00 01")
- *   - INIT_DEFAULT_PASSWORD   (default: "Admin@123456")
- *   - DATABASE_URL            (required: e.g. "file:/app/data/commercio.db")
+ * Configurable via env vars:
+ *   INIT_SUPERADMIN_EMAIL, INIT_SUPERADMIN_NAME, INIT_SUPERADMIN_PHONE
+ *   INIT_COMPANY_NAME, INIT_COMPANY_EMAIL, INIT_COMPANY_PHONE
+ *   INIT_DEFAULT_PASSWORD
  */
 
 const { execSync } = require('child_process')
 
-// ---- Configuration ----
 const DEFAULTS = {
   superAdminEmail: process.env.INIT_SUPERADMIN_EMAIL || 'admin@terangabiz.com',
   superAdminName: process.env.INIT_SUPERADMIN_NAME || 'Super Administrateur',
@@ -31,53 +23,55 @@ const DEFAULTS = {
   defaultPassword: process.env.INIT_DEFAULT_PASSWORD || 'Admin@123456',
 }
 
-const LOG_PREFIX = '[docker-init]'
-
 function log(msg) {
-  console.log(`${LOG_PREFIX} ${msg}`)
-}
-
-function logError(msg) {
-  console.error(`${LOG_PREFIX} ERROR: ${msg}`)
+  console.log(`[docker-init] ${msg}`)
 }
 
 async function main() {
   try {
-    // Step 1: Push Prisma schema
-    log('Pushing Prisma schema to database...')
+    // 1. Push Prisma schema
+    log('Pushing Prisma schema...')
     try {
       execSync('npx prisma db push --skip-generate 2>&1', {
         stdio: 'pipe',
         timeout: 60000,
       })
-      log('Prisma schema pushed successfully.')
-    } catch (e) {
-      // prisma db push might fail on "already applied" — that's OK
-      log('Prisma push completed (may have warnings).')
+      log('Schema pushed OK.')
+    } catch (_) {
+      log('Schema push completed (warnings OK).')
     }
 
-    // Step 2: Check if users already exist
-    const { PrismaClient } = require('./node_modules/.prisma/client')
+    // 2. Load Prisma client
+    let PrismaClient
+    try {
+      PrismaClient = require('./node_modules/.prisma/client').PrismaClient
+    } catch (_) {
+      try {
+        PrismaClient = require('@prisma/client').PrismaClient
+      } catch (__) {
+        log('WARNING: Cannot load Prisma client. Skipping user init.')
+        return
+      }
+    }
+
     const db = new PrismaClient()
 
     try {
       const userCount = await db.user.count()
 
       if (userCount > 0) {
-        log(`Database already has ${userCount} user(s). Skipping auto-init.`)
+        log(`DB has ${userCount} user(s). Init skipped.`)
         return
       }
 
-      log('No users found. Creating default company and super admin...')
+      log('Empty database. Creating company + super admin...')
 
-      // Step 3: Create default company
-      const companyId = 'comp_default'
-
+      // 3. Create company
       const company = await db.company.upsert({
         where: { email: DEFAULTS.companyEmail },
         update: {},
         create: {
-          id: companyId,
+          id: 'comp_default',
           name: DEFAULTS.companyName,
           email: DEFAULTS.companyEmail,
           phone: DEFAULTS.companyPhone,
@@ -86,14 +80,19 @@ async function main() {
         },
       })
 
-      log(`Company created: ${company.name} (${company.id})`)
+      log(`Company: ${company.name}`)
 
-      // Step 4: Hash password with bcrypt
-      const bcrypt = require('bcryptjs')
+      // 4. Hash password
+      let bcrypt
+      try {
+        bcrypt = require('./node_modules/bcryptjs')
+      } catch (_) {
+        bcrypt = require('bcryptjs')
+      }
       const hashedPassword = await bcrypt.hash(DEFAULTS.defaultPassword, 12)
 
-      // Step 5: Create super admin user
-      const superAdmin = await db.user.create({
+      // 5. Create super admin
+      await db.user.create({
         data: {
           email: DEFAULTS.superAdminEmail,
           password: hashedPassword,
@@ -105,25 +104,21 @@ async function main() {
         },
       })
 
-      log(`Super admin created: ${superAdmin.email}`)
-      log(`==========================================`)
+      log('==========================================')
       log(`  EMAIL:    ${DEFAULTS.superAdminEmail}`)
       log(`  PASSWORD: ${DEFAULTS.defaultPassword}`)
-      log(`  ⚠️  CHANGE THIS PASSWORD IMMEDIATELY!`)
-      log(`==========================================`)
+      log(`  CHANGE THIS PASSWORD IMMEDIATELY!`)
+      log('==========================================')
     } finally {
       await db.$disconnect()
     }
 
-    log('Initialization complete.')
+    log('Init complete.')
   } catch (error) {
-    logError(`Init failed: ${error.message}`)
-    // Don't exit — let the server start anyway
+    console.error(`[docker-init] Error: ${error.message}`)
+    // Don't block server startup
     process.exitCode = 0
   }
 }
 
-main().catch((err) => {
-  logError(`Fatal: ${err.message}`)
-  process.exitCode = 0
-})
+main().catch(() => { process.exitCode = 0 })
