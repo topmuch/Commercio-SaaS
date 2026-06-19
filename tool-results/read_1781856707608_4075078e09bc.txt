@@ -1,0 +1,513 @@
+     1→import { db } from '@/lib/db'
+     2→import { NextResponse } from 'next/server'
+     3→import { getCompanyId, getAuthSession, hashPassword } from '@/lib/auth'
+     4→
+     5→export async function POST(request: Request) {
+     6→  try {
+     7→    // SECURITY: Only super_admin or admin can seed/force-delete data
+     8→    const session = await getAuthSession()
+     9→    if (!session?.user) {
+    10→      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+    11→    }
+    12→    const role = (session.user as { role: string }).role
+    13→    if (!['admin', 'super_admin'].includes(role)) {
+    14→      return NextResponse.json(
+    15→        { error: 'Accès refusé. Seuls les administrateurs peuvent initialiser les données.' },
+    16→        { status: 403 }
+    17→      )
+    18→    }
+    19→
+    20→    const companyId = await getCompanyId()
+    21→
+    22→    // Check if data already exists
+    23→    const { searchParams } = new URL(request.url)
+    24→    const force = searchParams.get('force') === 'true'
+    25→
+    26→    if (!force) {
+    27→      const existingClients = await db.client.count({ where: { companyId } })
+    28→      if (existingClients > 0) {
+    29→        return NextResponse.json({ message: 'Données déjà insérées', count: existingClients })
+    30→      }
+    31→    } else {
+    32→      // SECURITY: Clean existing data scoped to this company only
+    33→      await db.payment.deleteMany({ where: { companyId } })
+    34→      await db.invoiceItem.deleteMany({ where: { invoice: { companyId } } })
+    35→      await db.invoice.deleteMany({ where: { companyId } })
+    36→      await db.orderItem.deleteMany({ where: { order: { companyId } } })
+    37→      await db.order.deleteMany({ where: { companyId } })
+    38→      await db.quoteItem.deleteMany({ where: { quote: { companyId } } })
+    39→      await db.quote.deleteMany({ where: { companyId } })
+    40→      await db.stockMovement.deleteMany({ where: { companyId } })
+    41→      await db.visit.deleteMany({ where: { companyId } })
+    42→      await db.discussion.deleteMany({ where: { companyId } })
+    43→      await db.target.deleteMany({ where: { user: { companyId } } })
+    44→      await db.client.deleteMany({ where: { companyId } })
+    45→      await db.product.deleteMany({ where: { companyId } })
+    46→      await db.category.deleteMany({ where: { companyId } })
+    47→      await db.user.deleteMany({ where: { companyId } })
+    48→      await db.storeBanner.deleteMany({ where: { companyId } })
+    49→      await db.storeSettings.deleteMany({ where: { companyId } })
+    50→    }
+    51→
+    52→    // =====================================================
+    53→    // Company — Generic Senegalese distribution company
+    54→    // =====================================================
+    55→    await db.company.upsert({
+    56→      where: { email: 'contact@distribusn.com' },
+    57→      update: {},
+    58→      create: {
+    59→        id: companyId,
+    60→        name: 'DistribuSN – Distribution Générale',
+    61→        email: 'contact@distribusn.com',
+    62→        phone: '+221 33 800 00 01',
+    63→        address: '45 Avenue Blaise Diagne, Dakar',
+    64→        plan: 'enterprise',
+    65→      },
+    66→    })
+    67→
+    68→    // =====================================================
+    69→    // Users — 1 admin, 1 director, 3 commercials
+    70→    // =====================================================
+    71→    const users = await Promise.all([
+    72→      db.user.create({
+    73→        data: {
+    74→          id: 'usr_1', email: 'mamadou@distribusn.com', password: await hashPassword('password123'), name: 'Mamadou Diallo',
+    75→          phone: '+221 77 100 00 01', role: 'admin', companyId,
+    76→        },
+    77→      }),
+    78→      db.user.create({
+    79→        data: {
+    80→          id: 'usr_2', email: 'fatou@distribusn.com', password: await hashPassword('password123'), name: 'Fatou Sylla',
+    81→          phone: '+221 77 100 00 02', role: 'director', companyId,
+    82→        },
+    83→      }),
+    84→      db.user.create({
+    85→        data: {
+    86→          id: 'usr_3', email: 'ibrahima@distribusn.com', password: await hashPassword('password123'), name: 'Ibrahima Ndiaye',
+    87→          phone: '+221 77 100 00 03', role: 'commercial', companyId,
+    88→        },
+    89→      }),
+    90→      db.user.create({
+    91→        data: {
+    92→          id: 'usr_4', email: 'aissatou@distribusn.com', password: await hashPassword('password123'), name: 'Aissatou Ba',
+    93→          phone: '+221 77 100 00 04', role: 'commercial', companyId,
+    94→        },
+    95→      }),
+    96→      db.user.create({
+    97→        data: {
+    98→          id: 'usr_5', email: 'ousmane@distribusn.com', password: await hashPassword('password123'), name: 'Ousmane Diop',
+    99→          phone: '+221 77 100 00 05', role: 'commercial', companyId,
+   100→        },
+   101→      }),
+   102→    ])
+   103→
+   104→    // =====================================================
+   105→    // Categories — 8 categories
+   106→    // =====================================================
+   107→    const categories = await Promise.all([
+   108→      db.category.create({ data: { id: 'cat_1', name: 'Boissons', companyId } }),
+   109→      db.category.create({ data: { id: 'cat_2', name: 'Alimentation', companyId } }),
+   110→      db.category.create({ data: { id: 'cat_3', name: 'Entretien', companyId } }),
+   111→      db.category.create({ data: { id: 'cat_4', name: 'Produits Laitiers', companyId } }),
+   112→      db.category.create({ data: { id: 'cat_5', name: 'Conserves', companyId } }),
+   113→      db.category.create({ data: { id: 'cat_6', name: 'Hygiène', companyId } }),
+   114→      db.category.create({ data: { id: 'cat_7', name: 'Jus & Sodas', parentId: 'cat_1', companyId } }),
+   115→      db.category.create({ data: { id: 'cat_8', name: 'Eau minérale', parentId: 'cat_1', companyId } }),
+   116→    ])
+   117→
+   118→    // =====================================================
+   119→    // Products — 17 products, prices in FCFA (500 – 50 000)
+   120→    // =====================================================
+   121→    const products = await Promise.all([
+   122→      db.product.create({ data: { id: 'prod_1', name: 'Coca-Cola 33cl', reference: 'BOI-001', price: 350, resellerPrice: 280, stock: 500, minStock: 50, categoryId: 'cat_7', brand: 'Coca-Cola', image: '/uploads/products/coca-cola-33cl.jpg', companyId } }),
+   123→      db.product.create({ data: { id: 'prod_2', name: 'Sprite 33cl', reference: 'BOI-002', price: 350, resellerPrice: 280, stock: 400, minStock: 50, categoryId: 'cat_7', brand: 'Coca-Cola', image: '/uploads/products/sprite-33cl.jpg', companyId } }),
+   124→      db.product.create({ data: { id: 'prod_3', name: 'Youki Jus d\'Ananas 1L', reference: 'BOI-003', price: 500, resellerPrice: 400, stock: 300, minStock: 40, categoryId: 'cat_7', brand: 'Youki', image: '/uploads/products/youki-jus-ananas-1l.jpg', companyId } }),
+   125→      db.product.create({ data: { id: 'prod_4', name: 'Folli Jus d\'Ananas 1L', reference: 'BOI-004', price: 600, resellerPrice: 480, stock: 250, minStock: 30, categoryId: 'cat_7', brand: 'Folli', image: '/uploads/products/folli-jus-ananas-1l.jpg', companyId } }),
+   126→      db.product.create({ data: { id: 'prod_5', name: 'Aqua Terminale 1.5L', reference: 'BOI-005', price: 200, resellerPrice: 150, stock: 1200, minStock: 150, categoryId: 'cat_8', brand: 'Aqua Terminale', image: '/uploads/products/aqua-terminale-1-5l.jpg', companyId } }),
+   127→      db.product.create({ data: { id: 'prod_6', name: 'Riz Tatam 25kg', reference: 'ALI-001', price: 16500, resellerPrice: 14500, stock: 200, minStock: 20, categoryId: 'cat_2', brand: 'Tatam', image: '/uploads/products/riz-tatam-25kg.jpg', companyId } }),
+   128→      db.product.create({ data: { id: 'prod_7', name: 'Huile de table Djama 5L', reference: 'ALI-002', price: 8500, resellerPrice: 7500, stock: 150, minStock: 15, categoryId: 'cat_2', brand: 'Djama', image: '/uploads/products/huile-djama-5l.jpg', companyId } }),
+   129→      db.product.create({ data: { id: 'prod_8', name: 'Café Moulu Kakao 250g', reference: 'ALI-003', price: 2800, resellerPrice: 2300, stock: 250, minStock: 30, categoryId: 'cat_2', brand: 'Kakao', image: null, companyId } }),
+   130→      db.product.create({ data: { id: 'prod_9', name: 'Cubes Maggi 12 pcs', reference: 'ALI-004', price: 750, resellerPrice: 600, stock: 400, minStock: 50, categoryId: 'cat_2', brand: 'Maggi', image: '/uploads/products/cubes-maggi-12pcs.jpg', companyId } }),
+   131→      db.product.create({ data: { id: 'prod_10', name: 'Kiss Margarine 500g', reference: 'ALI-005', price: 1200, resellerPrice: 950, stock: 350, minStock: 40, categoryId: 'cat_2', brand: 'Kiss', image: '/uploads/products/kiss-margarine-500g.jpg', companyId } }),
+   132→      db.product.create({ data: { id: 'prod_11', name: 'Omo Poudre 500g', reference: 'ENT-001', price: 1500, resellerPrice: 1200, stock: 180, minStock: 25, categoryId: 'cat_3', brand: 'Omo', image: null, companyId } }),
+   133→      db.product.create({ data: { id: 'prod_12', name: 'Savon de Marseille 400g', reference: 'ENT-002', price: 450, resellerPrice: 350, stock: 300, minStock: 30, categoryId: 'cat_3', brand: 'Marseille', image: '/uploads/products/savon-marseille-400g.jpg', companyId } }),
+   134→      db.product.create({ data: { id: 'prod_13', name: 'Yaourt Dolce Gusto pack 6', reference: 'LAIT-001', price: 5000, resellerPrice: 4200, stock: 120, minStock: 15, categoryId: 'cat_4', brand: 'Dolce Gusto', image: '/uploads/products/yaourt-dolce-gusto-pack6.jpg', companyId } }),
+   135→      db.product.create({ data: { id: 'prod_14', name: 'Lait UHT Vitalait 1L', reference: 'LAIT-002', price: 750, resellerPrice: 600, stock: 800, minStock: 100, categoryId: 'cat_4', brand: 'Vitalait', image: null, companyId } }),
+   136→      db.product.create({ data: { id: 'prod_15', name: 'Sardines John West 125g', reference: 'CON-001', price: 850, resellerPrice: 680, stock: 300, minStock: 30, categoryId: 'cat_5', brand: 'John West', image: '/uploads/products/sardines-john-west-125g.jpg', companyId } }),
+   137→      db.product.create({ data: { id: 'prod_16', name: 'Conserve Tomate Mutti 400g', reference: 'CON-002', price: 650, resellerPrice: 520, stock: 250, minStock: 25, categoryId: 'cat_5', brand: 'Mutti', image: '/uploads/products/conserve-tomate-mutti-400g.jpg', companyId } }),
+   138→      db.product.create({ data: { id: 'prod_17', name: 'Shampooing Dove 400ml', reference: 'HYG-001', price: 3500, resellerPrice: 2800, stock: 180, minStock: 25, categoryId: 'cat_6', brand: 'Dove', image: null, companyId } }),
+   139→    ])
+   140→
+   141→    // =====================================================
+   142→    // Clients — 15 clients across Senegalese cities & regions
+   143→    //   statuses: lead_rouge, negociation_orange, client_vert
+   144→    // =====================================================
+   145→    const clients = await Promise.all([
+   146→      // --- client_vert (active clients, have purchased) ---
+   147→      db.client.create({ data: { id: 'cli_1', companyName: 'SARL Boutique du Coin', contactName: 'Abdoulaye Sow', phone: '+221 77 200 00 01', whatsapp: '+221 77 200 00 01', email: 'boutique.ducoin@orange.sn', address: 'Rue 10, Plateau', city: 'Dakar', region: 'Dakar', latitude: 14.6937, longitude: -17.4441, type: 'boutique', status: 'client_vert', sector: 'Alimentation', commercialId: 'usr_3', companyId } }),
+   148→      db.client.create({ data: { id: 'cli_2', companyName: 'Épicerie Chez Omar', contactName: 'Omar Fall', phone: '+221 77 200 00 02', whatsapp: '+221 77 200 00 02', email: 'omar.epicerie@gmail.com', address: 'Avenue Lamine Guèye', city: 'Dakar', region: 'Dakar', latitude: 14.7012, longitude: -17.4520, type: 'boutique', status: 'client_vert', sector: 'Alimentation', commercialId: 'usr_3', companyId } }),
+   149→      db.client.create({ data: { id: 'cli_3', companyName: 'Supermarché Sobatex', contactName: 'Aminata Diop', phone: '+221 77 200 00 03', whatsapp: '+221 77 200 00 03', email: 'contact@sobatex.sn', address: 'Route de Rufisque, Liberté 6', city: 'Dakar', region: 'Dakar', latitude: 14.7350, longitude: -17.4600, type: 'supermarche', status: 'client_vert', sector: 'Grande distribution', commercialId: 'usr_4', companyId } }),
+   150→      db.client.create({ data: { id: 'cli_4', companyName: 'Grossiste Auchan Express', contactName: 'Cheikh Mbaye', phone: '+221 77 200 00 04', whatsapp: '+221 77 200 00 04', email: 'grossiste.auchan@gmail.com', address: 'Zone Commerciale, Diamniadio', city: 'Rufisque', region: 'Dakar', latitude: 14.7253, longitude: -17.2597, type: 'grossiste', status: 'client_vert', sector: 'Gros', commercialId: 'usr_4', companyId } }),
+   151→      db.client.create({ data: { id: 'cli_5', companyName: 'Alimentation Chez Fatou', contactName: 'Fatou Sarr', phone: '+221 77 200 00 05', whatsapp: '+221 77 200 00 05', address: 'Marché Sandaga', city: 'Dakar', region: 'Dakar', latitude: 14.6850, longitude: -17.4430, type: 'boutique', status: 'client_vert', sector: 'Alimentation', commercialId: 'usr_5', companyId } }),
+   152→      db.client.create({ data: { id: 'cli_6', companyName: 'Mini Market Liberté', contactName: 'Malick Ndiaye', phone: '+221 77 200 00 06', whatsapp: '+221 77 200 00 06', address: 'Carrefour Liberté', city: 'Pikine', region: 'Dakar', latitude: 14.7645, longitude: -17.3904, type: 'revendeur', status: 'client_vert', sector: 'Alimentation', commercialId: 'usr_5', companyId } }),
+   153→      db.client.create({ data: { id: 'cli_7', companyName: 'Épicerie Modou & Fils', contactName: 'Modou Gueye', phone: '+221 77 200 00 07', whatsapp: '+221 77 200 00 07', email: 'modou.fils@gmail.com', address: 'Avenue de la République', city: 'Thiès', region: 'Thiès', latitude: 14.7936, longitude: -16.9371, type: 'boutique', status: 'client_vert', sector: 'Alimentation', commercialId: 'usr_3', companyId } }),
+   154→      db.client.create({ data: { id: 'cli_8', companyName: 'Superette le Saloum', contactName: 'Adama Dia', phone: '+221 77 200 00 08', address: 'Centre-ville, Kaolack', city: 'Kaolack', region: 'Kaolack', latitude: 14.1755, longitude: -16.0797, type: 'supermarche', status: 'client_vert', sector: 'Grande distribution', commercialId: 'usr_4', companyId } }),
+   155→      db.client.create({ data: { id: 'cli_9', companyName: 'Grossiste Teranga Wholesale', contactName: 'Boubacar Sy', phone: '+221 77 200 00 09', whatsapp: '+221 77 200 00 09', email: 'teranga.wholesale@gmail.com', address: 'Zone Industrielle', city: 'Saint-Louis', region: 'Saint-Louis', latitude: 16.4581, longitude: -16.4530, type: 'grossiste', status: 'client_vert', sector: 'Gros', commercialId: 'usr_5', companyId } }),
+   156→
+   157→      // --- negociation_orange (negotiation in progress, quote sent) ---
+   158→      db.client.create({ data: { id: 'cli_10', companyName: 'Boutique Diallo Commerce', contactName: 'Moussa Diallo', phone: '+221 77 200 00 10', whatsapp: '+221 77 200 00 10', address: 'Quartier Médina', city: 'Dakar', region: 'Dakar', latitude: 14.6910, longitude: -17.4390, type: 'boutique', status: 'negociation_orange', sector: 'Alimentation', commercialId: 'usr_3', companyId } }),
+   159→      db.client.create({ data: { id: 'cli_11', companyName: 'Dépôt Kolda Distribution', contactName: 'Seydou Bâ', phone: '+221 77 200 00 11', whatsapp: '+221 77 200 00 11', email: 'kolda.depot@gmail.com', address: 'Route Nationale 6', city: 'Kolda', region: 'Kolda', latitude: 12.8894, longitude: -14.9447, type: 'grossiste', status: 'negociation_orange', sector: 'Gros', commercialId: 'usr_4', companyId } }),
+   160→      db.client.create({ data: { id: 'cli_12', companyName: 'Épicerie Chez Aminata', contactName: 'Aminata Thioub', phone: '+221 77 200 00 12', address: 'Marché Kermel', city: 'Dakar', region: 'Dakar', latitude: 14.6720, longitude: -17.4370, type: 'boutique', status: 'negociation_orange', sector: 'Alimentation', commercialId: 'usr_5', companyId } }),
+   161→      db.client.create({ data: { id: 'cli_13', companyName: 'Alimentation du Quartier', contactName: 'Yacine Diouf', phone: '+221 77 200 00 13', whatsapp: '+221 77 200 00 13', address: 'Quartier Grand Yoff', city: 'Dakar', region: 'Dakar', latitude: 14.7480, longitude: -17.4760, type: 'revendeur', status: 'negociation_orange', sector: 'Alimentation', commercialId: 'usr_3', companyId } }),
+   162→      db.client.create({ data: { id: 'cli_14', companyName: 'SARL Sénégal Boissons', contactName: 'Aliou Sow', phone: '+221 77 200 00 14', whatsapp: '+221 77 200 00 14', email: 'sn.boissons@gmail.com', address: 'Route de Ziguinchor', city: 'Ziguinchor', region: 'Ziguinchor', latitude: 12.5833, longitude: -16.2244, type: 'grossiste', status: 'negociation_orange', sector: 'Boissons', commercialId: 'usr_4', companyId } }),
+   163→
+   164→      // --- lead_rouge (prospects, not yet purchased) ---
+   165→      db.client.create({ data: { id: 'cli_15', companyName: 'Marché Sandaga Provisions', contactName: 'Ousmane Wade', phone: '+221 77 200 00 15', address: 'Avenue Pompidou', city: 'Dakar', region: 'Dakar', latitude: 14.6830, longitude: -17.4410, type: 'revendeur', status: 'lead_rouge', sector: 'Alimentation', commercialId: 'usr_5', companyId } }),
+   166→      db.client.create({ data: { id: 'cli_16', companyName: 'Épicerie de Tambacounda', contactName: 'Demba Cissé', phone: '+221 77 200 00 16', address: 'Avenue du 4 Avril', city: 'Tambacounda', region: 'Tambacounda', latitude: 13.7708, longitude: -13.1942, type: 'boutique', status: 'lead_rouge', sector: 'Alimentation', commercialId: 'usr_3', companyId } }),
+   167→      db.client.create({ data: { id: 'cli_17', companyName: 'Superette Diourbel', contactName: 'Mariama Ba', phone: '+221 77 200 00 17', whatsapp: '+221 77 200 00 17', address: 'Place de l\'Indépendance', city: 'Diourbel', region: 'Diourbel', latitude: 14.6500, longitude: -16.2364, type: 'boutique', status: 'lead_rouge', sector: 'Alimentation', commercialId: 'usr_4', companyId } }),
+   168→      db.client.create({ data: { id: 'cli_18', companyName: 'Grossiste Louga Market', contactName: 'Biram Diop', phone: '+221 77 200 00 18', address: 'Route de Louga', city: 'Louga', region: 'Louga', latitude: 15.6139, longitude: -16.2181, type: 'grossiste', status: 'lead_rouge', sector: 'Gros', commercialId: 'usr_5', companyId } }),
+   169→
+   170→      // --- Additional clients across ALL 14 regions ---
+   171→      // Fatick (was missing)
+   172→      db.client.create({ data: { id: 'cli_19', companyName: 'Alimentation Fatick Provisions', contactName: 'Moustapha Seck', phone: '+221 77 300 00 01', whatsapp: '+221 77 300 00 01', address: 'Boulevard Jean-Paul Sartre', city: 'Fatick', region: 'Fatick', latitude: 13.9094, longitude: -16.4131, type: 'boutique', status: 'client_vert', sector: 'Alimentation', commercialId: 'usr_3', companyId } }),
+   173→      db.client.create({ data: { id: 'cli_20', companyName: 'Épicerie du Siné-Saloum', contactName: 'Awa Ndong', phone: '+221 77 300 00 02', address: 'Marché central, Foundiougne', city: 'Foundiougne', region: 'Fatick', latitude: 14.1280, longitude: -16.4810, type: 'boutique', status: 'lead_rouge', sector: 'Alimentation', commercialId: 'usr_4', companyId } }),
+   174→
+   175→      // Kaffrine (was missing)
+   176→      db.client.create({ data: { id: 'cli_21', companyName: 'Dépôt Kaffrine Distribution', contactName: 'Pape Mbaye', phone: '+221 77 400 00 01', whatsapp: '+221 77 400 00 01', address: 'Route Nationale 7', city: 'Kaffrine', region: 'Kaffrine', latitude: 14.1069, longitude: -15.5414, type: 'grossiste', status: 'negociation_orange', sector: 'Gros', commercialId: 'usr_5', companyId } }),
+   177→      db.client.create({ data: { id: 'cli_22', companyName: 'Mini Market Kaffrine', contactName: 'Khady Diop', phone: '+221 77 400 00 02', address: 'Carrefour Kaffrine', city: 'Kaffrine', region: 'Kaffrine', latitude: 14.1100, longitude: -15.5400, type: 'revendeur', status: 'client_vert', sector: 'Alimentation', commercialId: 'usr_3', companyId } }),
+   178→
+   179→      // Sédhiou (was missing)
+   180→      db.client.create({ data: { id: 'cli_23', companyName: 'Boutique Sédhiou Marketplace', contactName: 'Ibrahima Sagnane', phone: '+221 77 500 00 01', address: 'Avenue du Port', city: 'Sédhiou', region: 'Sédhiou', latitude: 12.7078, longitude: -15.5589, type: 'boutique', status: 'negociation_orange', sector: 'Alimentation', commercialId: 'usr_4', companyId } }),
+   181→      db.client.create({ data: { id: 'cli_24', companyName: 'Grossiste Casamance Sud', contactName: 'Abdoulaye Badji', phone: '+221 77 500 00 02', whatsapp: '+221 77 500 00 02', address: 'Route de Kolda', city: 'Sédhiou', region: 'Sédhiou', latitude: 12.7100, longitude: -15.5560, type: 'grossiste', status: 'lead_rouge', sector: 'Gros', commercialId: 'usr_5', companyId } }),
+   182→
+   183→      // Kédougou (was missing)
+   184→      db.client.create({ data: { id: 'cli_25', companyName: 'Épicerie Kédougou Provisions', contactName: 'Mamadou Camara', phone: '+221 77 600 00 01', address: 'Centre-ville', city: 'Kédougou', region: 'Kédougou', latitude: 12.5564, longitude: -12.1733, type: 'boutique', status: 'lead_rouge', sector: 'Alimentation', commercialId: 'usr_3', companyId } }),
+   185→
+   186→      // Matam (was missing)
+   187→      db.client.create({ data: { id: 'cli_26', companyName: 'Superette Matam Express', contactName: 'Doudou Sow', phone: '+221 77 700 00 01', whatsapp: '+221 77 700 00 01', address: 'Route du Fleuve', city: 'Matam', region: 'Matam', latitude: 15.6581, longitude: -13.2978, type: 'supermarche', status: 'negociation_orange', sector: 'Grande distribution', commercialId: 'usr_4', companyId } }),
+   188→      db.client.create({ data: { id: 'cli_27', companyName: 'Grossiste Ferlo', contactName: 'Samba Ba', phone: '+221 77 700 00 02', address: 'Route de Louga', city: 'Matam', region: 'Matam', latitude: 15.6600, longitude: -13.3000, type: 'grossiste', status: 'client_vert', sector: 'Gros', commercialId: 'usr_5', companyId } }),
+   189→
+   190→      // Extra Dakar clients for density
+   191→      db.client.create({ data: { id: 'cli_28', companyName: 'Supermarché Auchan Plateau', contactName: 'Rama Ndiaye', phone: '+221 77 800 00 01', whatsapp: '+221 77 800 00 01', email: 'auchan.plateau@sn.com', address: 'Boulevard de la République', city: 'Dakar', region: 'Dakar', latitude: 14.6680, longitude: -17.4320, type: 'supermarche', status: 'client_vert', sector: 'Grande distribution', commercialId: 'usr_3', companyId } }),
+   192→      db.client.create({ data: { id: 'cli_29', companyName: 'Épicerie Mermoz Alimentation', contactName: 'Cheikh Anta Diop', phone: '+221 77 800 00 02', address: 'Avenue Pasteur, Mermoz', city: 'Dakar', region: 'Dakar', latitude: 14.6950, longitude: -17.4650, type: 'boutique', status: 'client_vert', sector: 'Alimentation', commercialId: 'usr_4', companyId } }),
+   193→      db.client.create({ data: { id: 'cli_30', companyName: 'Dakar Distribution Services', contactName: 'Souleymane Diallo', phone: '+221 77 800 00 03', whatsapp: '+221 77 800 00 03', address: 'Zone Industrielle, Bargny', city: 'Rufisque', region: 'Dakar', latitude: 14.7400, longitude: -17.2400, type: 'grossiste', status: 'client_vert', sector: 'Gros', commercialId: 'usr_5', companyId } }),
+   194→
+   195→      // Extra Thiès clients
+   196→      db.client.create({ data: { id: 'cli_31', companyName: 'Boutique Tivaouane Services', contactName: 'Moussa Thiam', phone: '+221 77 900 00 01', address: 'Place du Marché, Tivaouane', city: 'Tivaouane', region: 'Thiès', latitude: 14.7794, longitude: -16.9467, type: 'boutique', status: 'negociation_orange', sector: 'Alimentation', commercialId: 'usr_3', companyId } }),
+   197→
+   198→      // Extra Saint-Louis clients
+   199→      db.client.create({ data: { id: 'cli_32', companyName: 'Supermarché Ndioum du Nord', contactName: 'Aminata Sow', phone: '+221 77 100 01 01', whatsapp: '+221 77 100 01 01', address: 'Avenue André Gide', city: 'Saint-Louis', region: 'Saint-Louis', latitude: 16.4530, longitude: -16.4630, type: 'supermarche', status: 'client_vert', sector: 'Grande distribution', commercialId: 'usr_4', companyId } }),
+   200→
+   201→      // Extra Kaolack clients
+   202→      db.client.create({ data: { id: 'cli_33', companyName: 'Grossiste Saloum King', contactName: 'Omar Ndiaye', phone: '+221 77 100 02 01', address: 'Route Nationale 4', city: 'Kaolack', region: 'Kaolack', latitude: 14.1820, longitude: -16.0850, type: 'grossiste', status: 'client_vert', sector: 'Gros', commercialId: 'usr_5', companyId } }),
+   203→
+   204→      // Extra Ziguinchor clients
+   205→      db.client.create({ data: { id: 'cli_34', companyName: 'Boutique Casamance Provisions', contactName: 'Jean Mendy', phone: '+221 77 100 03 01', whatsapp: '+221 77 100 03 01', address: 'Avenue de la Resistance', city: 'Ziguinchor', region: 'Ziguinchor', latitude: 12.5800, longitude: -16.2300, type: 'boutique', status: 'negociation_orange', sector: 'Alimentation', commercialId: 'usr_3', companyId } }),
+   206→    ])
+   207→
+   208→    // =====================================================
+   209→    // Orders — 25 orders (totals in FCFA)
+   210→    // =====================================================
+   211→    const statuses = ['new', 'validated', 'preparation', 'shipped', 'delivered']
+   212→    for (let i = 1; i <= 25; i++) {
+   213→      const clientIdx = (i - 1) % clients.length
+   214→      const commercialIdx = (i - 1) % 3 + 2 // usr_3, usr_4, usr_5
+   215→      const total = Math.round((Math.random() * 2000000 + 100000) * 100) / 100
+   216→      const status = statuses[i % statuses.length]
+   217→      const date = new Date()
+   218→      date.setDate(date.getDate() - Math.floor(Math.random() * 30))
+   219→
+   220→      await db.order.create({
+   221→        data: {
+   222→          id: `ord_${i}`,
+   223→          number: `CMD-2024-${String(i).padStart(4, '0')}`,
+   224→          status,
+   225→          total,
+   226→          discount: Math.random() > 0.7 ? Math.round(total * 0.05 * 100) / 100 : 0,
+   227→          tax: 0, // FCFA transactions in Senegal are typically tax-inclusive
+   228→          clientId: clients[clientIdx].id,
+   229→          commercialId: users[commercialIdx].id,
+   230→          companyId,
+   231→          createdAt: date,
+   232→          items: {
+   233→            create: [
+   234→              {
+   235→                productId: products[Math.floor(Math.random() * products.length)].id,
+   236→                quantity: Math.floor(Math.random() * 50 + 5),
+   237→                unitPrice: Math.round(Math.random() * 5000 + 350),
+   238→                totalPrice: Math.round(Math.random() * 200000 + 15000),
+   239→              },
+   240→              {
+   241→                productId: products[Math.floor(Math.random() * products.length)].id,
+   242→                quantity: Math.floor(Math.random() * 30 + 3),
+   243→                unitPrice: Math.round(Math.random() * 3000 + 200),
+   244→                totalPrice: Math.round(Math.random() * 100000 + 8000),
+   245→              },
+   246→            ],
+   247→          },
+   248→        },
+   249→      })
+   250→    }
+   251→
+   252→    // =====================================================
+   253→    // Quotes — 15 quotes
+   254→    // =====================================================
+   255→    const quoteStatuses = ['draft', 'sent', 'accepted', 'refused']
+   256→    for (let i = 1; i <= 15; i++) {
+   257→      const clientIdx = (i - 1) % clients.length
+   258→      const commercialIdx = (i - 1) % 3 + 2
+   259→      const total = Math.round((Math.random() * 1500000 + 80000) * 100) / 100
+   260→
+   261→      await db.quote.create({
+   262→        data: {
+   263→          id: `quo_${i}`,
+   264→          number: `DEV-2024-${String(i).padStart(4, '0')}`,
+   265→          status: quoteStatuses[i % quoteStatuses.length],
+   266→          total,
+   267→          discount: Math.random() > 0.7 ? Math.round(total * 0.05 * 100) / 100 : 0,
+   268→          tax: 0,
+   269→          validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+   270→          clientId: clients[clientIdx].id,
+   271→          commercialId: users[commercialIdx].id,
+   272→          companyId,
+   273→          items: {
+   274→            create: [
+   275→              {
+   276→                productId: products[Math.floor(Math.random() * products.length)].id,
+   277→                quantity: Math.floor(Math.random() * 40 + 5),
+   278→                unitPrice: Math.round(Math.random() * 4000 + 350),
+   279→                totalPrice: Math.round(Math.random() * 150000 + 10000),
+   280→              },
+   281→            ],
+   282→          },
+   283→        },
+   284→      })
+   285→    }
+   286→
+   287→    // =====================================================
+   288→    // Invoices — 15 invoices
+   289→    // =====================================================
+   290→    const invStatuses = ['paid', 'partially_paid', 'unpaid', 'overdue']
+   291→    for (let i = 1; i <= 15; i++) {
+   292→      const clientIdx = (i - 1) % clients.length
+   293→      const commercialIdx = (i - 1) % 3 + 2
+   294→      const total = Math.round((Math.random() * 2500000 + 100000) * 100) / 100
+   295→      const status = invStatuses[i % invStatuses.length]
+   296→
+   297→      await db.invoice.create({
+   298→        data: {
+   299→          id: `inv_${i}`,
+   300→          number: `FAC-2024-${String(i).padStart(4, '0')}`,
+   301→          status,
+   302→          total,
+   303→          paid: status === 'paid' ? total : status === 'partially_paid' ? Math.round(total * 0.6) : 0,
+   304→          discount: 0,
+   305→          tax: 0,
+   306→          dueDate: new Date(Date.now() + (i % 3 === 0 ? -5 : 30) * 24 * 60 * 60 * 1000),
+   307→          clientId: clients[clientIdx].id,
+   308→          commercialId: users[commercialIdx].id,
+   309→          companyId,
+   310→          items: {
+   311→            create: [
+   312→              {
+   313→                productId: products[Math.floor(Math.random() * products.length)].id,
+   314→                quantity: Math.floor(Math.random() * 50 + 5),
+   315→                unitPrice: Math.round(Math.random() * 5000 + 350),
+   316→                totalPrice: Math.round(Math.random() * 200000 + 15000),
+   317→              },
+   318→            ],
+   319→          },
+   320→          payments: status !== 'unpaid' ? {
+   321→            create: {
+   322→              amount: status === 'paid' ? total : Math.round(total * 0.6),
+   323→              method: ['cash', 'mobile_payment', 'bank_transfer'][i % 3],
+   324→              status: 'completed',
+   325→              clientId: clients[clientIdx].id,
+   326→              companyId,
+   327→            },
+   328→          } : undefined,
+   329→        },
+   330→      })
+   331→    }
+   332→
+   333→    // =====================================================
+   334→    // Stock Movements — 25 entries
+   335→    // =====================================================
+   336→    const movementReasons: Record<number, string> = {
+   337→      0: 'Livraison CMD-2024-0003',
+   338→      1: 'Réception fournisseur',
+   339→      2: 'Correction inventaire',
+   340→    }
+   341→    for (let i = 1; i <= 25; i++) {
+   342→      const moveType = (['entry', 'exit', 'adjustment'] as const)[i % 3]
+   343→      await db.stockMovement.create({
+   344→        data: {
+   345→          id: `stm_${i}`,
+   346→          type: moveType,
+   347→          quantity: Math.floor(Math.random() * 100 + 10) * (moveType === 'exit' ? -1 : 1),
+   348→          reason: movementReasons[i % 3],
+   349→          productId: products[Math.floor(Math.random() * products.length)].id,
+   350→          companyId,
+   351→          createdAt: new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000),
+   352→        },
+   353→      })
+   354→    }
+   355→
+   356→    // =====================================================
+   357→    // Visits — 20 visits
+   358→    // =====================================================
+   359→    const visitNotes = [
+   360→      'Client satisfait, commande prévue la semaine prochaine.',
+   361→      'Appel de suivi devis DEV-2024-0005.',
+   362→      'Prospect intéressé par les produits Youki et Folli.',
+   363→      'Visite de prise de commande — 3 produits commandés.',
+   364→      'Client demande une réduction sur les grosses commandes.',
+   365→      'Rendez-vous reporté au lundi suivant.',
+   366→      'Nouveau prospect rencontré au marché Sandaga.',
+   367→      'Livraison retardée, client informé.',
+   368→    ]
+   369→    for (let i = 1; i <= 20; i++) {
+   370→      const visitType = (['visit', 'call', 'note'] as const)[i % 3]
+   371→      await db.visit.create({
+   372→        data: {
+   373→          id: `vis_${i}`,
+   374→          type: visitType,
+   375→          status: (['planned', 'completed', 'completed'] as const)[i % 3],
+   376→          notes: visitNotes[i % visitNotes.length],
+   377→          latitude: 14.6937 + (Math.random() - 0.5) * 2,
+   378→          longitude: -17.4441 + (Math.random() - 0.5) * 4,
+   379→          clientId: clients[(i - 1) % clients.length].id,
+   380→          commercialId: users[((i % 3) + 2) % 5]?.id || users[2].id,
+   381→          companyId,
+   382→          createdAt: new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000),
+   383→        },
+   384→      })
+   385→    }
+   386→
+   387→    // =====================================================
+   388→    // Discussions — 20 messages
+   389→    // =====================================================
+   390→    const discussionTypes = ['message', 'call', 'note', 'whatsapp']
+   391→    const messages = [
+   392→      'Bonjour, pouvez-vous me confirmer la livraison de demain ?',
+   393→      'Votre commande CMD-2024-0015 a été expédiée.',
+   394→      'Merci pour le devis, je vais l\'étudier avec mon associé.',
+   395→      'N\'oubliez pas la promotion sur les boissons Youki ce mois-ci.',
+   396→      'Le paiement de la facture FAC-2024-0003 a été effectué via Orange Money.',
+   397→      'Est-ce que le riz Tatam 25kg est en stock ?',
+   398→      'Je souhaite passer une commande pour 50 cartons de Coca-Cola.',
+   399→      'Le prix du Kiss Margarine a changé, voici le nouveau tarif.',
+   400→      'Livraison prévue samedi matin à Pikine.',
+   401→      'Merci, à la prochaine !',
+   402→    ]
+   403→    for (let i = 1; i <= 20; i++) {
+   404→      await db.discussion.create({
+   405→        data: {
+   406→          id: `dis_${i}`,
+   407→          type: discussionTypes[i % 4],
+   408→          content: messages[i % messages.length],
+   409→          direction: i % 2 === 0 ? 'incoming' : 'outgoing',
+   410→          clientId: clients[(i - 1) % clients.length].id,
+   411→          commercialId: users[((i % 3) + 2) % 5]?.id || users[2].id,
+   412→          companyId,
+   413→          createdAt: new Date(Date.now() - Math.floor(Math.random() * 7) * 24 * 60 * 60 * 1000),
+   414→        },
+   415→      })
+   416→    }
+   417→
+   418→    // =====================================================
+   419→    // Targets — Revenue & client targets for commercials
+   420→    // =====================================================
+   421→    await db.target.createMany({
+   422→      data: [
+   423→        // Revenue targets (in FCFA)
+   424→        { id: 'tgt_1', type: 'revenue', value: 5000000, period: 'monthly', startDate: new Date('2024-01-01'), endDate: new Date('2024-12-31'), achieved: 3850000, userId: 'usr_3' },
+   425→        { id: 'tgt_2', type: 'revenue', value: 4500000, period: 'monthly', startDate: new Date('2024-01-01'), endDate: new Date('2024-12-31'), achieved: 3200000, userId: 'usr_4' },
+   426→        { id: 'tgt_3', type: 'revenue', value: 4000000, period: 'monthly', startDate: new Date('2024-01-01'), endDate: new Date('2024-12-31'), achieved: 4100000, userId: 'usr_5' },
+   427→        // Client acquisition targets
+   428→        { id: 'tgt_4', type: 'clients', value: 20, period: 'monthly', startDate: new Date('2024-01-01'), endDate: new Date('2024-12-31'), achieved: 15, userId: 'usr_3' },
+   429→        { id: 'tgt_5', type: 'clients', value: 18, period: 'monthly', startDate: new Date('2024-01-01'), endDate: new Date('2024-12-31'), achieved: 12, userId: 'usr_4' },
+   430→        { id: 'tgt_6', type: 'clients', value: 15, period: 'monthly', startDate: new Date('2024-01-01'), endDate: new Date('2024-12-31'), achieved: 16, userId: 'usr_5' },
+   431→        // Visit targets
+   432→        { id: 'tgt_7', type: 'visits', value: 60, period: 'monthly', startDate: new Date('2024-01-01'), endDate: new Date('2024-12-31'), achieved: 48, userId: 'usr_3' },
+   433→        { id: 'tgt_8', type: 'visits', value: 55, period: 'monthly', startDate: new Date('2024-01-01'), endDate: new Date('2024-12-31'), achieved: 40, userId: 'usr_4' },
+   434→        { id: 'tgt_9', type: 'visits', value: 50, period: 'monthly', startDate: new Date('2024-01-01'), endDate: new Date('2024-12-31'), achieved: 52, userId: 'usr_5' },
+   435→      ],
+   436→    })
+   437→
+   438→    // Store Settings for public boutique
+   439→    await db.storeSettings.upsert({
+   440→      where: { companyId },
+   441→      update: {},
+   442→      create: {
+   443→        companyId,
+   444→        whatsappNumber: '+221 77 100 00 01',
+   445→        storeTitle: 'DistribuSN Boutique',
+   446→        storeDescription: 'Votre distributeur de confiance au Sénégal. Boissons, alimentation, entretien et plus.',
+   447→        currency: 'CFA',
+   448→        isActive: true,
+   449→        publicSlug: 'distribusn',
+   450→        logoUrl: null,
+   451→        primaryColor: '#10B981',
+   452→      },
+   453→    })
+   454→
+   455→    // Banners for public boutique
+   456→    await db.storeBanner.createMany({
+   457→      data: [
+   458→        {
+   459→          companyId,
+   460→          imageUrl: '/uploads/boutique/promo-boissons.jpg',
+   461→          title: 'Promo Spéciale !',
+   462→          subtitle: '-15% sur toutes les boissons ce mois-ci',
+   463→          displayOrder: 0,
+   464→          isActive: true,
+   465→          startDate: new Date('2025-01-01'),
+   466→        },
+   467→        {
+   468→          companyId,
+   469→          imageUrl: '/uploads/boutique/nouveautes.jpg',
+   470→          title: 'Nouveautés',
+   471→          subtitle: 'Découvrez nos nouveaux produits alimentaires',
+   472→          displayOrder: 1,
+   473→          isActive: true,
+   474→          startDate: new Date('2025-01-01'),
+   475→        },
+   476→        {
+   477→          companyId,
+   478→          imageUrl: '/uploads/boutique/livraison.jpg',
+   479→          title: 'Livraison Gratuite',
+   480→          subtitle: 'À partir de 50 000 FCFA de commande',
+   481→          displayOrder: 2,
+   482→          isActive: true,
+   483→          startDate: new Date('2025-01-01'),
+   484→        },
+   485→      ],
+   486→    })
+   487→
+   488→    return NextResponse.json({
+   489→      message: 'Base de données peuplée avec succès (Sénégal)',
+   490→      clients: clients.length,
+   491→      products: products.length,
+   492→      categories: categories.length,
+   493→      users: users.length,
+   494→      banners: 3,
+   495→    })
+   496→  } catch (error: unknown) {
+   497→    const message = error instanceof Error ? error.message : 'Erreur serveur'
+   498→    return NextResponse.json({ error: message }, { status: 500 })
+   499→  }
+   500→}
+   501→
+   502→export async function GET() {
+   503→  try {
+   504→    const clients = await db.client.count()
+   505→    const products = await db.product.count()
+   506→    const orders = await db.order.count()
+   507→    return NextResponse.json({ clients, products, orders })
+   508→  } catch (error: unknown) {
+   509→    const message = error instanceof Error ? error.message : 'Erreur serveur'
+   510→    return NextResponse.json({ error: message }, { status: 500 })
+   511→  }
+   512→}
+   513→

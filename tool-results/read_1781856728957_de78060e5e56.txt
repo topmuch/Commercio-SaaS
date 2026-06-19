@@ -1,0 +1,882 @@
+     1→'use client'
+     2→
+     3→import { useEffect, useState } from 'react'
+     4→import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+     5→import { Button } from '@/components/ui/button'
+     6→import { Badge } from '@/components/ui/badge'
+     7→import { Input } from '@/components/ui/input'
+     8→import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+     9→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    10→import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+    11→import { Label } from '@/components/ui/label'
+    12→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+    13→import { Textarea } from '@/components/ui/textarea'
+    14→import { Switch } from '@/components/ui/switch'
+    15→import { 
+    16→  Search, TrendingUp, Users, Building2, CreditCard, Loader2, 
+    17→  RefreshCw, AlertCircle, CheckCircle, Plus, Ban, Trash2, 
+    18→  Settings, MoreHorizontal, MessageCircle, Shield, FileText, Mail,
+    19→  Phone, Globe, Image as ImageIcon, Lock, Unlock, X, Bell
+    20→} from 'lucide-react'
+    21→import { toast } from 'sonner'
+    22→
+    23→interface CompanyData {
+    24→  id: string
+    25→  name: string
+    26→  email: string
+    27→  phone: string | null
+    28→  plan: string
+    29→  status?: 'active' | 'suspended'
+    30→  createdAt: string
+    31→  _count: {
+    32→    users: number
+    33→    clients: number
+    34→    products: number
+    35→    orders: number
+    36→  }
+    37→}
+    38→
+    39→interface SubscriptionData {
+    40→  id: string
+    41→  plan: string
+    42→  status: string
+    43→  startDate: string
+    44→  endDate: string | null
+    45→  company: {
+    46→    id: string
+    47→    name: string
+    48→    email: string
+    49→  }
+    50→}
+    51→
+    52→export default function SaasAdminPage() {
+    53→  const [loading, setLoading] = useState(true)
+    54→  const [companies, setCompanies] = useState<CompanyData[]>([])
+    55→  const [subscriptions, setSubscriptions] = useState<SubscriptionData[]>([])
+    56→  const [searchQuery, setSearchQuery] = useState('')
+    57→  const [activeTab, setActiveTab] = useState('companies')
+    58→  const [error, setError] = useState('')
+    59→  const [creating, setCreating] = useState(false)
+    60→
+    61→  // Dialog states
+    62→  const [createCompanyDialog, setCreateCompanyDialog] = useState(false)
+    63→  const [selectedCompany, setSelectedCompany] = useState<CompanyData | null>(null)
+    64→  const [companyActionDialog, setCompanyActionDialog] = useState<'suspend' | 'activate' | 'delete' | null>(null)
+    65→
+    66→  // New company form
+    67→  const [newCompany, setNewCompany] = useState({
+    68→    name: '',
+    69→    email: '',
+    70→    phone: '',
+    71→    plan: 'starter' as 'starter' | 'pro' | 'enterprise',
+    72→    whatsapp: '',
+    73→  })
+    74→
+    75→  // Platform settings
+    76→  const [platformSettings, setPlatformSettings] = useState({
+    77→    companyName: 'Commercio',
+    78→    companyEmail: 'contact@commercio.com',
+    79→    companyPhone: '+221 77 123 45 67',
+    80→    companyAddress: 'Dakar, Sénégal',
+    81→    seoTitle: 'Commercio - ERP CRM Gestion Commerciale',
+    82→    seoDescription: 'Solution ERP CRM complète pour la gestion commerciale',
+    83→    smtpHost: '',
+    84→    smtpPort: '',
+    85→    smtpUser: '',
+    86→    emailSignature: '',
+    87→    enableEmailNotifications: true,
+    88→    enableWhatsAppNotifications: true,
+    89→  })
+    90→
+    91→  useEffect(() => {
+    92→    loadData()
+    93→  }, [])
+    94→
+    95→  const loadData = async () => {
+    96→    setLoading(true)
+    97→    setError('')
+    98→
+    99→    try {
+   100→      const [companiesRes, subscriptionsRes] = await Promise.all([
+   101→        fetch('/api/saas/admin/companies'),
+   102→        fetch('/api/saas/admin/subscriptions'),
+   103→      ])
+   104→
+   105→      if (!companiesRes.ok || !subscriptionsRes.ok) {
+   106→        throw new Error('Erreur lors du chargement des données')
+   107→      }
+   108→
+   109→      const companiesData = await companiesRes.json()
+   110→      const subscriptionsData = await subscriptionsRes.json()
+   111→
+   112→      setCompanies(companiesData.data || [])
+   113→      setSubscriptions(subscriptionsData.data || [])
+   114→    } catch (err) {
+   115→      setError(err instanceof Error ? err.message : 'Erreur')
+   116→    } finally {
+   117→      setLoading(false)
+   118→    }
+   119→  }
+   120→
+   121→  const handleCreateCompany = async () => {
+   122→    if (!newCompany.name || !newCompany.email) {
+   123→      toast.error('Veuillez remplir tous les champs obligatoires')
+   124→      return
+   125→    }
+   126→
+   127→    setCreating(true)
+   128→    try {
+   129→      const res = await fetch('/api/saas/admin/companies', {
+   130→        method: 'POST',
+   131→        headers: { 'Content-Type': 'application/json' },
+   132→        body: JSON.stringify({
+   133→          name: newCompany.name,
+   134→          email: newCompany.email,
+   135→          phone: newCompany.phone,
+   136→          plan: newCompany.plan,
+   137→          whatsapp: newCompany.whatsapp,
+   138→        }),
+   139→      })
+   140→
+   141→      if (!res.ok) {
+   142→        const json = await res.json()
+   143→        throw new Error(json.error || 'Erreur lors de la création')
+   144→      }
+   145→
+   146→      const json = await res.json()
+   147→      toast.success('Entreprise créée avec succès')
+   148→      
+   149→      // Send WhatsApp if number provided
+   150→      if (json.data?.accessCode && newCompany.whatsapp) {
+   151→        const cleanPhone = newCompany.whatsapp.replace(/[^0-9]/g, '')
+   152→        const message = encodeURIComponent(
+   153→          `🎉 *Bienvenue sur Commercio!*\n\nBonjour,\n\nVotre compte a été créé avec succès.\n\n📱 *Code d'accès:* ${json.data.accessCode}\n\n🔗 *URL:* ${process.env.NEXTAUTH_URL || 'https://votre-domaine.com'}\n\nVeuillez utiliser ce code pour vous connecter.\n\nCordialement,\nL'équipe Commercio`
+   154→        )
+   155→        window.open(`https://wa.me/${cleanPhone}?text=${message}`, '_blank')
+   156→      }
+   157→
+   158→      setNewCompany({ name: '', email: '', phone: '', plan: 'starter', whatsapp: '' })
+   159→      setCreateCompanyDialog(false)
+   160→      await loadData()
+   161→    } catch (err) {
+   162→      toast.error(err instanceof Error ? err.message : 'Erreur lors de la création')
+   163→    } finally {
+   164→      setCreating(false)
+   165→    }
+   166→  }
+   167→
+   168→  const handleCompanyAction = async (action: 'suspend' | 'activate' | 'delete') => {
+   169→    if (!selectedCompany) return
+   170→
+   171→    try {
+   172→      const res = await fetch(`/api/saas/admin/companies/${selectedCompany.id}`, {
+   173→        method: 'PATCH',
+   174→        headers: { 'Content-Type': 'application/json' },
+   175→        body: JSON.stringify({ action }),
+   176→      })
+   177→
+   178→      if (!res.ok) {
+   179→        const json = await res.json()
+   180→        throw new Error(json.error || 'Erreur lors de l\'action')
+   181→      }
+   182→
+   183→      const messages = {
+   184→        suspend: 'Compte suspendu avec succès',
+   185→        activate: 'Compte activé avec succès',
+   186→        delete: 'Compte supprimé avec succès',
+   187→      }
+   188→
+   189→      toast.success(messages[action])
+   190→      setCompanyActionDialog(null)
+   191→      setSelectedCompany(null)
+   192→      await loadData()
+   193→    } catch (err) {
+   194→      toast.error(err instanceof Error ? err.message : 'Erreur')
+   195→    }
+   196→  }
+   197→
+   198→  const handleSaveSettings = async () => {
+   199→    try {
+   200→      const res = await fetch('/api/saas/admin/settings', {
+   201→        method: 'PATCH',
+   202→        headers: { 'Content-Type': 'application/json' },
+   203→        body: JSON.stringify(platformSettings),
+   204→      })
+   205→
+   206→      if (!res.ok) {
+   207→        throw new Error('Erreur lors de la sauvegarde')
+   208→      }
+   209→
+   210→      toast.success('Paramètres sauvegardés avec succès')
+   211→    } catch (err) {
+   212→      toast.error(err instanceof Error ? err.message : 'Erreur')
+   213→    }
+   214→  }
+   215→
+   216→  const filteredCompanies = companies.filter(
+   217→    (company) =>
+   218→      company.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+   219→      company.email.toLowerCase().includes(searchQuery.toLowerCase())
+   220→  )
+   221→
+   222→  const filteredSubscriptions = subscriptions.filter((sub) =>
+   223→    sub.company.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+   224→    sub.company.email.toLowerCase().includes(searchQuery.toLowerCase())
+   225→  )
+   226→
+   227→  const getStats = () => {
+   228→    const totalRevenue = subscriptions
+   229→      .filter((s) => s.status === 'active')
+   230→      .reduce((sum, s) => {
+   231→        if (s.plan === 'pro') return sum + 29000
+   232→        return sum
+   233→      }, 0)
+   234→
+   235→    const activeSubscriptions = subscriptions.filter((s) => s.status === 'active').length
+   236→    const trialSubscriptions = subscriptions.filter(
+   237→      (s) => s.status === 'active' && s.plan === 'pro'
+   238→    ).length
+   239→    const freeSubscriptions = subscriptions.filter((s) => s.plan === 'starter').length
+   240→    const suspendedCompanies = companies.filter((c) => c.status === 'suspended').length
+   241→
+   242→    return {
+   243→      totalRevenue,
+   244→      activeSubscriptions,
+   245→      trialSubscriptions,
+   246→      freeSubscriptions,
+   247→      suspendedCompanies,
+   248→    }
+   249→  }
+   250→
+   251→  const stats = getStats()
+   252→
+   253→  const getStatusBadge = (status?: string) => {
+   254→    if (!status) {
+   255→      return <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20">Actif</Badge>
+   256→    }
+   257→    switch (status) {
+   258→      case 'active':
+   259→        return <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20">Actif</Badge>
+   260→      case 'suspended':
+   261→        return <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20">Suspendu</Badge>
+   262→      default:
+   263→        return <Badge>{status}</Badge>
+   264→    }
+   265→  }
+   266→
+   267→  const getPlanBadge = (plan: string) => {
+   268→    switch (plan) {
+   269→      case 'starter':
+   270→        return <Badge variant="secondary">Starter</Badge>
+   271→      case 'pro':
+   272→        return <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20">Pro</Badge>
+   273→      case 'enterprise':
+   274→        return <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20">Enterprise</Badge>
+   275→      default:
+   276→        return <Badge>{plan}</Badge>
+   277→    }
+   278→  }
+   279→
+   280→  if (loading) {
+   281→    return (
+   282→      <div className="flex items-center justify-center min-h-screen">
+   283→        <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+   284→      </div>
+   285→    )
+   286→  }
+   287→
+   288→  return (
+   289→    <div className="p-6 space-y-6">
+   290→      {/* Header */}
+   291→      <div className="flex items-center justify-between">
+   292→        <div>
+   293→          <h1 className="text-3xl font-bold text-white mb-2">SaaS Admin Dashboard</h1>
+   294→          <p className="text-slate-400">Gestion des tenants et abonnements</p>
+   295→        </div>
+   296→        <div className="flex gap-2">
+   297→          <Button onClick={loadData} variant="outline" size="sm">
+   298→            <RefreshCw className="w-4 h-4 mr-2" />
+   299→            Actualiser
+   300→          </Button>
+   301→        </div>
+   302→      </div>
+   303→
+   304→      {error && (
+   305→        <Card className="bg-red-500/10 border-red-500/20">
+   306→          <CardContent className="p-4">
+   307→            <div className="flex items-center gap-2 text-red-400">
+   308→              <AlertCircle className="w-5 h-5" />
+   309→              <p>{error}</p>
+   310→            </div>
+   311→          </CardContent>
+   312→        </Card>
+   313→      )}
+   314→
+   315→      {/* Stats */}
+   316→      <div className="grid md:grid-cols-5 gap-4">
+   317→        <Card className="bg-slate-800/50 border-slate-700">
+   318→          <CardHeader className="pb-3">
+   319→            <CardDescription className="text-slate-400 flex items-center gap-2">
+   320→              <Building2 className="w-4 h-4" />
+   321→              Entreprises
+   322→            </CardDescription>
+   323→          </CardHeader>
+   324→          <CardContent>
+   325→            <div className="text-2xl font-bold text-white">{companies.length}</div>
+   326→            <p className="text-xs text-slate-400 mt-1">
+   327→              {stats.suspendedCompanies} suspendu{stats.suspendedCompanies > 1 ? 's' : ''}
+   328→            </p>
+   329→          </CardContent>
+   330→        </Card>
+   331→
+   332→        <Card className="bg-slate-800/50 border-slate-700">
+   333→          <CardHeader className="pb-3">
+   334→            <CardDescription className="text-slate-400 flex items-center gap-2">
+   335→              <CreditCard className="w-4 h-4" />
+   336→              Abonnements actifs
+   337→            </CardDescription>
+   338→          </CardHeader>
+   339→          <CardContent>
+   340→            <div className="text-2xl font-bold text-white">{stats.activeSubscriptions}</div>
+   341→            <p className="text-sm text-slate-400 mt-1">
+   342→              {stats.freeSubscriptions} gratuits, {stats.trialSubscriptions} essais
+   343→            </p>
+   344→          </CardContent>
+   345→        </Card>
+   346→
+   347→        <Card className="bg-slate-800/50 border-slate-700">
+   348→          <CardHeader className="pb-3">
+   349→            <CardDescription className="text-slate-400 flex items-center gap-2">
+   350→              <TrendingUp className="w-4 h-4" />
+   351→              Revenus mensuels
+   352→            </CardDescription>
+   353→          </CardHeader>
+   354→          <CardContent>
+   355→            <div className="text-2xl font-bold text-white">{stats.totalRevenue.toLocaleString()} FCFA</div>
+   356→          </CardContent>
+   357→        </Card>
+   358→
+   359→        <Card className="bg-slate-800/50 border-slate-700">
+   360→          <CardHeader className="pb-3">
+   361→            <CardDescription className="text-slate-400 flex items-center gap-2">
+   362→              <Users className="w-4 h-4" />
+   363→              Utilisateurs totaux
+   364→            </CardDescription>
+   365→          </CardHeader>
+   366→          <CardContent>
+   367→            <div className="text-2xl font-bold text-white">
+   368→              {companies.reduce((sum, c) => sum + c._count.users, 0)}
+   369→            </div>
+   370→          </CardContent>
+   371→        </Card>
+   372→
+   373→        <Card className="bg-slate-800/50 border-slate-700">
+   374→          <CardHeader className="pb-3">
+   375→            <CardDescription className="text-slate-400 flex items-center gap-2">
+   376→              <Shield className="w-4 h-4" />
+   377→              Statut plateforme
+   378→            </CardDescription>
+   379→          </CardHeader>
+   380→          <CardContent>
+   381→            <div className="text-2xl font-bold text-emerald-400">Opérationnel</div>
+   382→            <div className="flex items-center gap-1 mt-1">
+   383→              <CheckCircle className="w-3 h-3 text-emerald-400" />
+   384→              <span className="text-xs text-slate-400">Tous les systèmes OK</span>
+   385→            </div>
+   386→          </CardContent>
+   387→        </Card>
+   388→      </div>
+   389→
+   390→      {/* Search */}
+   391→      <div className="flex gap-3">
+   392→        <div className="relative flex-1">
+   393→          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+   394→          <Input
+   395→            placeholder="Rechercher une entreprise..."
+   396→            value={searchQuery}
+   397→            onChange={(e) => setSearchQuery(e.target.value)}
+   398→            className="pl-10 bg-slate-800/50 border-slate-700 text-white"
+   399→          />
+   400→        </div>
+   401→        <Dialog open={createCompanyDialog} onOpenChange={setCreateCompanyDialog}>
+   402→          <DialogTrigger asChild>
+   403→            <Button className="gap-2">
+   404→              <Plus className="w-4 h-4" />
+   405→              Nouvelle entreprise
+   406→            </Button>
+   407→          </DialogTrigger>
+   408→          <DialogContent className="sm:max-w-[500px]">
+   409→            <DialogHeader>
+   410→              <DialogTitle>Créer une nouvelle entreprise</DialogTitle>
+   411→              <DialogDescription>
+   412→                Créez un compte entreprise et envoyez les identifiants via WhatsApp
+   413→              </DialogDescription>
+   414→            </DialogHeader>
+   415→            <div className="space-y-4 py-4">
+   416→              <div>
+   417→                <Label htmlFor="name">Nom de l'entreprise *</Label>
+   418→                <Input
+   419→                  id="name"
+   420→                  value={newCompany.name}
+   421→                  onChange={(e) => setNewCompany({ ...newCompany, name: e.target.value })}
+   422→                  placeholder="Ex: Boutique Exemple"
+   423→                />
+   424→              </div>
+   425→              <div>
+   426→                <Label htmlFor="email">Email *</Label>
+   427→                <Input
+   428→                  id="email"
+   429→                  type="email"
+   430→                  value={newCompany.email}
+   431→                  onChange={(e) => setNewCompany({ ...newCompany, email: e.target.value })}
+   432→                  placeholder="contact@exemple.com"
+   433→                />
+   434→              </div>
+   435→              <div>
+   436→                <Label htmlFor="phone">Téléphone</Label>
+   437→                <Input
+   438→                  id="phone"
+   439→                  value={newCompany.phone}
+   440→                  onChange={(e) => setNewCompany({ ...newCompany, phone: e.target.value })}
+   441→                  placeholder="+221 77 123 45 67"
+   442→                />
+   443→              </div>
+   444→              <div>
+   445→                <Label htmlFor="whatsapp">WhatsApp (pour envoi code)</Label>
+   446→                <Input
+   447→                  id="whatsapp"
+   448→                  value={newCompany.whatsapp}
+   449→                  onChange={(e) => setNewCompany({ ...newCompany, whatsapp: e.target.value })}
+   450→                  placeholder="+221 77 123 45 67"
+   451→                />
+   452→                <p className="text-xs text-slate-400 mt-1">
+   453→                  Le code d'accès sera envoyé via WhatsApp
+   454→                </p>
+   455→              </div>
+   456→              <div>
+   457→                <Label htmlFor="plan">Plan initial</Label>
+   458→                <Select
+   459→                  value={newCompany.plan}
+   460→                  onValueChange={(v: 'starter' | 'pro' | 'enterprise') => setNewCompany({ ...newCompany, plan: v })}
+   461→                >
+   462→                  <SelectTrigger id="plan">
+   463→                    <SelectValue />
+   464→                  </SelectTrigger>
+   465→                  <SelectContent>
+   466→                    <SelectItem value="starter">Starter (Gratuit)</SelectItem>
+   467→                    <SelectItem value="pro">Pro (29 000 FCFA/mois)</SelectItem>
+   468→                    <SelectItem value="enterprise">Enterprise (Sur mesure)</SelectItem>
+   469→                  </SelectContent>
+   470→                </Select>
+   471→              </div>
+   472→            </div>
+   473→            <DialogFooter>
+   474→              <Button variant="outline" onClick={() => setCreateCompanyDialog(false)}>
+   475→                Annuler
+   476→              </Button>
+   477→              <Button onClick={handleCreateCompany} disabled={creating}>
+   478→                {creating ? (
+   479→                  <>
+   480→                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+   481→                    Création...
+   482→                  </>
+   483→                ) : (
+   484→                  <>
+   485→                    <Plus className="w-4 h-4 mr-2" />
+   486→                    Créer
+   487→                  </>
+   488→                )}
+   489→              </Button>
+   490→            </DialogFooter>
+   491→          </DialogContent>
+   492→        </Dialog>
+   493→      </div>
+   494→
+   495→      {/* Tabs */}
+   496→      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+   497→        <TabsList className="bg-slate-800 border-slate-700">
+   498→          <TabsTrigger value="companies">Entreprises</TabsTrigger>
+   499→          <TabsTrigger value="subscriptions">Abonnements</TabsTrigger>
+   500→          <TabsTrigger value="settings">
+   501→            <Settings className="w-4 h-4 mr-2" />
+   502→            Paramètres
+   503→          </TabsTrigger>
+   504→        </TabsList>
+   505→
+   506→        {/* Companies Tab */}
+   507→        <TabsContent value="companies" className="space-y-4">
+   508→          <Card className="bg-slate-800/50 border-slate-700">
+   509→            <CardHeader>
+   510→              <CardTitle className="text-white">Liste des entreprises</CardTitle>
+   511→              <CardDescription className="text-slate-400">
+   512→                {filteredCompanies.length} entreprise{filteredCompanies.length !== 1 ? 's' : ''}
+   513→              </CardDescription>
+   514→            </CardHeader>
+   515→            <CardContent>
+   516→              <div className="overflow-x-auto">
+   517→                <Table>
+   518→                  <TableHeader>
+   519→                    <TableRow className="border-slate-700">
+   520→                      <TableHead className="text-slate-300">Entreprise</TableHead>
+   521→                      <TableHead className="text-slate-300">Email</TableHead>
+   522→                      <TableHead className="text-slate-300">Plan</TableHead>
+   523→                      <TableHead className="text-slate-300">Statut</TableHead>
+   524→                      <TableHead className="text-slate-300">Utilisateurs</TableHead>
+   525→                      <TableHead className="text-slate-300">Clients</TableHead>
+   526→                      <TableHead className="text-slate-300">Produits</TableHead>
+   527→                      <TableHead className="text-slate-300">Commandes</TableHead>
+   528→                      <TableHead className="text-slate-300">Actions</TableHead>
+   529→                    </TableRow>
+   530→                  </TableHeader>
+   531→                  <TableBody>
+   532→                    {filteredCompanies.map((company) => (
+   533→                      <TableRow key={company.id} className="border-slate-700/50">
+   534→                        <TableCell className="text-white font-medium">{company.name}</TableCell>
+   535→                        <TableCell className="text-slate-300">{company.email}</TableCell>
+   536→                        <TableCell>{getPlanBadge(company.plan)}</TableCell>
+   537→                        <TableCell>{getStatusBadge(company.status)}</TableCell>
+   538→                        <TableCell className="text-white">{company._count.users}</TableCell>
+   539→                        <TableCell className="text-white">{company._count.clients}</TableCell>
+   540→                        <TableCell className="text-white">{company._count.products}</TableCell>
+   541→                        <TableCell className="text-white">{company._count.orders}</TableCell>
+   542→                        <TableCell>
+   543→                          <div className="flex items-center gap-2">
+   544→                            {company.status !== 'suspended' ? (
+   545→                              <Button
+   546→                                size="icon"
+   547→                                variant="outline"
+   548→                                className="h-8 w-8 hover:bg-amber-500/10 hover:text-amber-400"
+   549→                                onClick={() => {
+   550→                                  setSelectedCompany(company)
+   551→                                  setCompanyActionDialog('suspend')
+   552→                                }}
+   553→                              >
+   554→                                <Ban className="w-4 h-4" />
+   555→                              </Button>
+   556→                            ) : (
+   557→                              <Button
+   558→                                size="icon"
+   559→                                variant="outline"
+   560→                                className="h-8 w-8 hover:bg-emerald-500/10 hover:text-emerald-400"
+   561→                                onClick={() => {
+   562→                                  setSelectedCompany(company)
+   563→                                  setCompanyActionDialog('activate')
+   564→                                }}
+   565→                              >
+   566→                                <Unlock className="w-4 h-4" />
+   567→                              </Button>
+   568→                            )}
+   569→                            <Button
+   570→                              size="icon"
+   571→                              variant="outline"
+   572→                              className="h-8 w-8 hover:bg-red-500/10 hover:text-red-400"
+   573→                              onClick={() => {
+   574→                                setSelectedCompany(company)
+   575→                                setCompanyActionDialog('delete')
+   576→                              }}
+   577→                            >
+   578→                              <Trash2 className="w-4 h-4" />
+   579→                            </Button>
+   580→                          </div>
+   581→                        </TableCell>
+   582→                      </TableRow>
+   583→                    ))}
+   584→                  </TableBody>
+   585→                </Table>
+   586→              </div>
+   587→            </CardContent>
+   588→          </Card>
+   589→        </TabsContent>
+   590→
+   591→        {/* Subscriptions Tab */}
+   592→        <TabsContent value="subscriptions" className="space-y-4">
+   593→          <Card className="bg-slate-800/50 border-slate-700">
+   594→            <CardHeader>
+   595→              <CardTitle className="text-white">Liste des abonnements</CardTitle>
+   596→              <CardDescription className="text-slate-400">
+   597→                {filteredSubscriptions.length} abonnement{filteredSubscriptions.length !== 1 ? 's' : ''}
+   598→              </CardDescription>
+   599→            </CardHeader>
+   600→            <CardContent>
+   601→              <div className="overflow-x-auto">
+   602→                <Table>
+   603→                  <TableHeader>
+   604→                    <TableRow className="border-slate-700">
+   605→                      <TableHead className="text-slate-300">Entreprise</TableHead>
+   606→                      <TableHead className="text-slate-300">Email</TableHead>
+   607→                      <TableHead className="text-slate-300">Plan</TableHead>
+   608→                      <TableHead className="text-slate-300">Statut</TableHead>
+   609→                      <TableHead className="text-slate-300">Date de début</TableHead>
+   610→                      <TableHead className="text-slate-300">Date de fin</TableHead>
+   611→                    </TableRow>
+   612→                  </TableHeader>
+   613→                  <TableBody>
+   614→                    {filteredSubscriptions.map((sub) => (
+   615→                      <TableRow key={sub.id} className="border-slate-700/50">
+   616→                        <TableCell className="text-white font-medium">{sub.company.name}</TableCell>
+   617→                        <TableCell className="text-slate-300">{sub.company.email}</TableCell>
+   618→                        <TableCell>{getPlanBadge(sub.plan)}</TableCell>
+   619→                        <TableCell>{getStatusBadge(sub.status)}</TableCell>
+   620→                        <TableCell className="text-slate-400">
+   621→                          {new Date(sub.startDate).toLocaleDateString('fr-FR')}
+   622→                        </TableCell>
+   623→                        <TableCell className="text-slate-400">
+   624→                          {sub.endDate ? new Date(sub.endDate).toLocaleDateString('fr-FR') : '∞'}
+   625→                        </TableCell>
+   626→                      </TableRow>
+   627→                    ))}
+   628→                  </TableBody>
+   629→                </Table>
+   630→              </div>
+   631→            </CardContent>
+   632→          </Card>
+   633→        </TabsContent>
+   634→
+   635→        {/* Settings Tab */}
+   636→        <TabsContent value="settings" className="space-y-4">
+   637→          <div className="grid md:grid-cols-2 gap-4">
+   638→            {/* Company Info */}
+   639→            <Card className="bg-slate-800/50 border-slate-700">
+   640→              <CardHeader>
+   641→                <CardTitle className="text-white flex items-center gap-2">
+   642→                  <Building2 className="w-5 h-5" />
+   643→                  Informations de l'entreprise
+   644→                </CardTitle>
+   645→                <CardDescription className="text-slate-400">
+   646→                  Paramètres globaux de la plateforme
+   647→                </CardDescription>
+   648→              </CardHeader>
+   649→              <CardContent className="space-y-4">
+   650→                <div>
+   651→                  <Label htmlFor="companyName">Nom de la société</Label>
+   652→                  <Input
+   653→                    id="companyName"
+   654→                    value={platformSettings.companyName}
+   655→                    onChange={(e) => setPlatformSettings({ ...platformSettings, companyName: e.target.value })}
+   656→                  />
+   657→                </div>
+   658→                <div>
+   659→                  <Label htmlFor="companyEmail">Email de contact</Label>
+   660→                  <Input
+   661→                    id="companyEmail"
+   662→                    type="email"
+   663→                    value={platformSettings.companyEmail}
+   664→                    onChange={(e) => setPlatformSettings({ ...platformSettings, companyEmail: e.target.value })}
+   665→                  />
+   666→                </div>
+   667→                <div>
+   668→                  <Label htmlFor="companyPhone">Téléphone</Label>
+   669→                  <Input
+   670→                    id="companyPhone"
+   671→                    value={platformSettings.companyPhone}
+   672→                    onChange={(e) => setPlatformSettings({ ...platformSettings, companyPhone: e.target.value })}
+   673→                  />
+   674→                </div>
+   675→                <div>
+   676→                  <Label htmlFor="companyAddress">Adresse</Label>
+   677→                  <Textarea
+   678→                    id="companyAddress"
+   679→                    value={platformSettings.companyAddress}
+   680→                    onChange={(e) => setPlatformSettings({ ...platformSettings, companyAddress: e.target.value })}
+   681→                    rows={2}
+   682→                  />
+   683→                </div>
+   684→              </CardContent>
+   685→            </Card>
+   686→
+   687→            {/* SEO Settings */}
+   688→            <Card className="bg-slate-800/50 border-slate-700">
+   689→              <CardHeader>
+   690→                <CardTitle className="text-white flex items-center gap-2">
+   691→                  <Globe className="w-5 h-5" />
+   692→                  SEO
+   693→                </CardTitle>
+   694→                <CardDescription className="text-slate-400">
+   695→                  Optimisation pour les moteurs de recherche
+   696→                </CardDescription>
+   697→              </CardHeader>
+   698→              <CardContent className="space-y-4">
+   699→                <div>
+   700→                  <Label htmlFor="seoTitle">Titre SEO</Label>
+   701→                  <Input
+   702→                    id="seoTitle"
+   703→                    value={platformSettings.seoTitle}
+   704→                    onChange={(e) => setPlatformSettings({ ...platformSettings, seoTitle: e.target.value })}
+   705→                    placeholder="Titre de votre page"
+   706→                  />
+   707→                </div>
+   708→                <div>
+   709→                  <Label htmlFor="seoDescription">Description SEO</Label>
+   710→                  <Textarea
+   711→                    id="seoDescription"
+   712→                    value={platformSettings.seoDescription}
+   713→                    onChange={(e) => setPlatformSettings({ ...platformSettings, seoDescription: e.target.value })}
+   714→                    rows={3}
+   715→                    placeholder="Description pour les résultats de recherche"
+   716→                  />
+   717→                </div>
+   718→              </CardContent>
+   719→            </Card>
+   720→
+   721→            {/* Email Settings */}
+   722→            <Card className="bg-slate-800/50 border-slate-700">
+   723→              <CardHeader>
+   724→                <CardTitle className="text-white flex items-center gap-2">
+   725→                  <Mail className="w-5 h-5" />
+   726→                  Configuration Email
+   727→                </CardTitle>
+   728→                <CardDescription className="text-slate-400">
+   729→                  Paramètres SMTP pour l'envoi d'emails
+   730→                </CardDescription>
+   731→              </CardHeader>
+   732→              <CardContent className="space-y-4">
+   733→                <div>
+   734→                  <Label htmlFor="smtpHost">Serveur SMTP</Label>
+   735→                  <Input
+   736→                    id="smtpHost"
+   737→                    value={platformSettings.smtpHost}
+   738→                    onChange={(e) => setPlatformSettings({ ...platformSettings, smtpHost: e.target.value })}
+   739→                    placeholder="smtp.gmail.com"
+   740→                  />
+   741→                </div>
+   742→                <div>
+   743→                  <Label htmlFor="smtpPort">Port SMTP</Label>
+   744→                  <Input
+   745→                    id="smtpPort"
+   746→                    type="number"
+   747→                    value={platformSettings.smtpPort}
+   748→                    onChange={(e) => setPlatformSettings({ ...platformSettings, smtpPort: e.target.value })}
+   749→                    placeholder="587"
+   750→                  />
+   751→                </div>
+   752→                <div>
+   753→                  <Label htmlFor="smtpUser">Utilisateur SMTP</Label>
+   754→                  <Input
+   755→                    id="smtpUser"
+   756→                    value={platformSettings.smtpUser}
+   757→                    onChange={(e) => setPlatformSettings({ ...platformSettings, smtpUser: e.target.value })}
+   758→                    placeholder="votre@email.com"
+   759→                  />
+   760→                </div>
+   761→                <div>
+   762→                  <Label htmlFor="emailSignature">Signature email</Label>
+   763→                  <Textarea
+   764→                    id="emailSignature"
+   765→                    value={platformSettings.emailSignature}
+   766→                    onChange={(e) => setPlatformSettings({ ...platformSettings, emailSignature: e.target.value })}
+   767→                    rows={3}
+   768→                    placeholder="Cordialement,\nL'équipe Commercio"
+   769→                  />
+   770→                </div>
+   771→              </CardContent>
+   772→            </Card>
+   773→
+   774→            {/* Notifications */}
+   775→            <Card className="bg-slate-800/50 border-slate-700">
+   776→              <CardHeader>
+   777→                <CardTitle className="text-white flex items-center gap-2">
+   778→                  <Bell className="w-5 h-5" />
+   779→                  Notifications
+   780→                </CardTitle>
+   781→                <CardDescription className="text-slate-400">
+   782→                  Gestion des notifications automatiques
+   783→                </CardDescription>
+   784→              </CardHeader>
+   785→              <CardContent className="space-y-4">
+   786→                <div className="flex items-center justify-between">
+   787→                  <div>
+   788→                    <Label>Notifications par email</Label>
+   789→                    <p className="text-xs text-slate-400">Envoyer les notifications par email</p>
+   790→                  </div>
+   791→                  <Switch
+   792→                    checked={platformSettings.enableEmailNotifications}
+   793→                    onCheckedChange={(checked) => setPlatformSettings({ ...platformSettings, enableEmailNotifications: checked })}
+   794→                  />
+   795→                </div>
+   796→                <div className="flex items-center justify-between">
+   797→                  <div>
+   798→                    <Label>Notifications WhatsApp</Label>
+   799→                    <p className="text-xs text-slate-400">Envoyer les notifications via WhatsApp</p>
+   800→                  </div>
+   801→                  <Switch
+   802→                    checked={platformSettings.enableWhatsAppNotifications}
+   803→                    onCheckedChange={(checked) => setPlatformSettings({ ...platformSettings, enableWhatsAppNotifications: checked })}
+   804→                  />
+   805→                </div>
+   806→              </CardContent>
+   807→            </Card>
+   808→          </div>
+   809→
+   810→          <div className="flex justify-end">
+   811→            <Button onClick={handleSaveSettings} className="gap-2">
+   812→              <CheckCircle className="w-4 h-4" />
+   813→              Sauvegarder les paramètres
+   814→            </Button>
+   815→          </div>
+   816→        </TabsContent>
+   817→      </Tabs>
+   818→
+   819→      {/* Company Action Dialog */}
+   820→      <Dialog open={!!companyActionDialog} onOpenChange={() => setCompanyActionDialog(null)}>
+   821→        <DialogContent>
+   822→          <DialogHeader>
+   823→            <DialogTitle>
+   824→              {companyActionDialog === 'suspend' && 'Suspendre le compte'}
+   825→              {companyActionDialog === 'activate' && 'Activer le compte'}
+   826→              {companyActionDialog === 'delete' && 'Supprimer le compte'}
+   827→            </DialogTitle>
+   828→            <DialogDescription>
+   829→              {companyActionDialog === 'suspend' && (
+   830→                <span>
+   831→                  Êtes-vous sûr de vouloir suspendre le compte de <strong>{selectedCompany?.name}</strong>?
+   832→                  <br />
+   833→                  L'accès sera bloqué pour tous les utilisateurs de cette entreprise.
+   834→                </span>
+   835→              )}
+   836→              {companyActionDialog === 'activate' && (
+   837→                <span>
+   838→                  Voulez-vous réactiver le compte de <strong>{selectedCompany?.name}</strong>?
+   839→                </span>
+   840→              )}
+   841→              {companyActionDialog === 'delete' && (
+   842→                <span className="text-red-400">
+   843→                  ⚠️ Cette action est irréversible. Êtes-vous sûr de vouloir supprimer le compte de <strong>{selectedCompany?.name}</strong>?
+   844→                  <br />
+   845→                  Toutes les données seront perdues.
+   846→                </span>
+   847→              )}
+   848→            </DialogDescription>
+   849→          </DialogHeader>
+   850→          <DialogFooter>
+   851→            <Button variant="outline" onClick={() => setCompanyActionDialog(null)}>
+   852→              Annuler
+   853→            </Button>
+   854→            <Button
+   855→              variant={companyActionDialog === 'delete' ? 'destructive' : 'default'}
+   856→              onClick={() => companyActionDialog && handleCompanyAction(companyActionDialog)}
+   857→            >
+   858→              {companyActionDialog === 'suspend' && (
+   859→                <>
+   860→                  <Ban className="w-4 h-4 mr-2" />
+   861→                  Suspendre
+   862→                </>
+   863→              )}
+   864→              {companyActionDialog === 'activate' && (
+   865→                <>
+   866→                  <Unlock className="w-4 h-4 mr-2" />
+   867→                  Activer
+   868→                </>
+   869→              )}
+   870→              {companyActionDialog === 'delete' && (
+   871→                <>
+   872→                  <Trash2 className="w-4 h-4 mr-2" />
+   873→                  Supprimer
+   874→                </>
+   875→              )}
+   876→            </Button>
+   877→          </DialogFooter>
+   878→        </DialogContent>
+   879→      </Dialog>
+   880→    </div>
+   881→  )
+   882→}
